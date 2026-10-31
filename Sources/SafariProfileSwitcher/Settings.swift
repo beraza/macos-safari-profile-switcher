@@ -292,7 +292,7 @@ final class AppSettings: ObservableObject {
 
     /// Profiles the settings refer to: the switching list, link rules and the default link profile.
     var usedProfiles: [String] {
-        ProfileMatcher.cleaned(switchProfiles + linkRules.map(\.profile) + [defaultLinkProfile])
+        ProfileMatcher.cleaned(switchProfiles + linkRules.filter { $0.targetApp.isEmpty }.map(\.profile) + [defaultLinkProfile])
             .filter { $0 != Self.safariDecides }
     }
 

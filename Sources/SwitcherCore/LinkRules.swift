@@ -1,6 +1,6 @@
 import Foundation
 
-/// "Open links like this in that profile".
+/// "Open links like this in that profile" (or in that app).
 public struct LinkRule: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
     /// `example.com` (with subdomains), `*.example.com` (subdomains only), optionally with a path prefix
@@ -8,20 +8,77 @@ public struct LinkRule: Codable, Equatable, Identifiable, Sendable {
     public var pattern: String
     /// Bundle id of the app the link was opened from; empty matches any app.
     public var sourceApp: String
+    /// Safari profile to open the link in, unless `targetApp` is set.
     public var profile: String
+    /// Bundle id of an app to open the link in instead of Safari (e.g. a video call app); empty for Safari.
+    public var targetApp: String
+    /// URL scheme `targetApp` takes instead of `https` (e.g. `ktalk`: https://x.ktalk.ru/room becomes
+    /// ktalk://x.ktalk.ru/room); empty to pass the link as it is.
+    public var targetScheme: String
 
-    public init(id: UUID = UUID(), pattern: String, sourceApp: String = "", profile: String) {
+    public init(id: UUID = UUID(), pattern: String, sourceApp: String = "", profile: String,
+                targetApp: String = "", targetScheme: String = "") {
         self.id = id
         self.pattern = pattern
         self.sourceApp = sourceApp
         self.profile = profile
+        self.targetApp = targetApp
+        self.targetScheme = targetScheme
+    }
+
+    // Rules saved before apps could be targets have no `targetApp` / `targetScheme`.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        pattern = try container.decode(String.self, forKey: .pattern)
+        sourceApp = try container.decodeIfPresent(String.self, forKey: .sourceApp) ?? ""
+        profile = try container.decodeIfPresent(String.self, forKey: .profile) ?? ""
+        targetApp = try container.decodeIfPresent(String.self, forKey: .targetApp) ?? ""
+        targetScheme = try container.decodeIfPresent(String.self, forKey: .targetScheme) ?? ""
+    }
+
+    /// Where a matching link goes.
+    public var target: LinkTarget? {
+        let app = targetApp.trimmingCharacters(in: .whitespaces)
+        if !app.isEmpty { return .app(bundleID: app, scheme: targetScheme.trimmingCharacters(in: .whitespaces)) }
+        return profile.isEmpty ? nil : .profile(profile)
+    }
+}
+
+public enum LinkTarget: Equatable, Sendable {
+    case profile(String)
+    case app(bundleID: String, scheme: String)
+
+    /// The link as the target takes it: for an app with its own scheme, `https://host/…` → `scheme://host/…`.
+    public func url(for url: URL) -> URL {
+        guard case .app(_, let scheme) = self, !scheme.isEmpty,
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else { return url }
+        components.scheme = scheme.lowercased()
+        return components.url ?? url
     }
 }
 
 public enum RuleMatcher {
-    /// Profile of the first matching rule.
+    /// Target of the first matching rule that has one. A rule sending links to the app they come from is
+    /// skipped: the app would hand its own links back to the default browser (this app) in a loop.
+    public static func target(for url: URL, sourceApp: String?, rules: [LinkRule]) -> LinkTarget? {
+        for rule in rules where matches(rule, url: url, sourceApp: sourceApp) {
+            switch rule.target {
+            case .app(let bundleID, _)? where bundleID.caseInsensitiveCompare(sourceApp ?? "") == .orderedSame:
+                continue
+            case let target?:
+                return target
+            case nil:
+                continue
+            }
+        }
+        return nil
+    }
+
+    /// Profile of the first matching rule that picks a profile (rules opening an app don't apply to tabs).
     public static func profile(for url: URL, sourceApp: String?, rules: [LinkRule]) -> String? {
-        rules.first { !$0.profile.isEmpty && matches($0, url: url, sourceApp: sourceApp) }?.profile
+        rules.first { $0.targetApp.isEmpty && !$0.profile.isEmpty && matches($0, url: url, sourceApp: sourceApp) }?.profile
     }
 
     public static func matches(_ rule: LinkRule, url: URL, sourceApp: String?) -> Bool {

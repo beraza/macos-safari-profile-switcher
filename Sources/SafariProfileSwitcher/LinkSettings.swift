@@ -37,7 +37,7 @@ struct LinkSettings: View {
             } header: {
                 Text("Rules (the first match wins)")
             } footer: {
-                Text("example.com includes subdomains, *.example.com only subdomains, github.com/org a path. The app is a bundle id, e.g. com.tinyspeck.slackmacgap; empty means any app. Rules also pick the profile for “Move tab to the next profile”.")
+                Text("example.com includes subdomains, *.example.com only subdomains, github.com/org a path. “From” is the app the link is clicked in, as a bundle id (e.g. com.tinyspeck.slackmacgap); empty means any app. A rule can also open links in another app, such as a video call app: if the app takes its own scheme instead of https (Kontur Talk: ktalk), set it next to the app. Profile rules also pick the profile for “Move tab to the next profile”.")
                     .foregroundStyle(.secondary)
             }
             Section {
@@ -74,13 +74,15 @@ struct LinkSettings: View {
         let cleaned = LinkCleaner.clean(
             url, unwrapRedirects: settings.unwrapRedirects, stripTracking: settings.stripTrackingParams)
         let app = testApp.trimmingCharacters(in: .whitespaces)
-        let profile = controller.linkProfile(for: cleaned, sourceApp: app.isEmpty ? nil : app)
-        let target = switch profile {
+        let linkTarget = controller.linkTarget(for: cleaned, sourceApp: app.isEmpty ? nil : app)
+        let opened = linkTarget?.url(for: cleaned) ?? cleaned
+        let target = switch linkTarget {
         case nil: String(localized: "Asks for a profile")
-        case AppSettings.safariDecides?: String(localized: "Safari decides by its website settings")
-        case let profile?: String(localized: "Opens in “\(ProfileMatcher.displayName(profile))”")
+        case .profile(AppSettings.safariDecides)?: String(localized: "Safari decides by its website settings")
+        case .profile(let profile)?: String(localized: "Opens in “\(ProfileMatcher.displayName(profile))”")
+        case .app(let bundleID, _)?: String(localized: "Opens in the app “\(AppInfo.name(of: bundleID))”")
         }
-        return cleaned == url ? target : "\(target): \(cleaned.absoluteString)"
+        return opened == url ? target : "\(target): \(opened.absoluteString)"
     }
 
     private func move(_ rule: LinkRule, by offset: Int) {
@@ -102,38 +104,91 @@ private struct RuleRow: View {
     let onMove: (LinkRule, Int) -> Void
     let onDelete: (LinkRule) -> Void
 
+    /// Tag of the "Other app…" item, which asks for an app.
+    private static let chooseApp = "#choose-app"
+    private static let appPrefix = "app:"
+
     var body: some View {
-        HStack(spacing: 6) {
-            TextField("Site", text: $rule.pattern, prompt: Text(verbatim: "example.com"))
-                .labelsHidden()
-            TextField("App", text: $rule.sourceApp, prompt: Text("any app"))
-                .labelsHidden()
-                .frame(width: 130)
-            Menu {
-                ForEach(runningApps, id: \.self) { bundleID in
-                    Button(bundleID) { rule.sourceApp = bundleID }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                TextField("Site", text: $rule.pattern, prompt: Text(verbatim: "example.com"))
+                    .labelsHidden()
+                Text("from").foregroundStyle(.secondary)
+                TextField("From app", text: $rule.sourceApp, prompt: Text("any app"))
+                    .labelsHidden()
+                    .frame(width: 150)
+                    .help("Bundle id of the app the link is clicked in; empty means any app")
+                Menu {
+                    ForEach(runningApps, id: \.self) { bundleID in
+                        Button("\(AppInfo.name(of: bundleID)) — \(bundleID)") { rule.sourceApp = bundleID }
+                    }
+                } label: {
+                    Image(systemName: "app.badge")
                 }
-            } label: {
-                Image(systemName: "app.badge")
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Pick a running app")
+                Button { onMove(rule, -1) } label: { Image(systemName: "chevron.up") }
+                Button { onMove(rule, 1) } label: { Image(systemName: "chevron.down") }
+                Button { onDelete(rule) } label: { Image(systemName: "trash") }
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Pick a running app")
-            Picker("Profile", selection: $rule.profile) {
-                if !profiles.contains(rule.profile) { Text(rule.profile).tag(rule.profile) }
-                ForEach(profiles, id: \.self) { Text(ProfileMatcher.displayName($0)).tag($0) }
+            HStack(spacing: 6) {
+                Text("open in").foregroundStyle(.secondary)
+                Picker("Open in", selection: target) {
+                    if rule.targetApp.isEmpty && !profiles.contains(rule.profile) {
+                        Text(rule.profile).tag(rule.profile)
+                    }
+                    ForEach(profiles, id: \.self) { Text(ProfileMatcher.displayName($0)).tag($0) }
+                    Divider()
+                    if !rule.targetApp.isEmpty {
+                        Text("App “\(AppInfo.name(of: rule.targetApp))”").tag(Self.appPrefix + rule.targetApp)
+                    }
+                    Text("Other app…").tag(Self.chooseApp)
+                }
+                .labelsHidden()
+                .fixedSize()
+                if !rule.targetApp.isEmpty {
+                    TextField("Scheme", text: $rule.targetScheme, prompt: Text(verbatim: "https"))
+                        .labelsHidden()
+                        .frame(width: 70)
+                        .help("The app's own link scheme: https://… becomes scheme://…; empty passes the link as it is")
+                    Text("://").foregroundStyle(.secondary)
+                }
+                if rule.targetApp.isEmpty && !detected.isEmpty && !rule.profile.isEmpty
+                    && rule.profile != ProfileMatcher.privateProfile && !detected.contains(rule.profile) {
+                    Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
+                        .help(ProfileWarning.missingProfile(rule.profile).message)
+                }
+                Spacer()
             }
-            .labelsHidden()
-            .frame(width: 110)
-            if !detected.isEmpty && !rule.profile.isEmpty && !detected.contains(rule.profile) {
-                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
-                    .help(ProfileWarning.missingProfile(rule.profile).message)
-            }
-            Button { onMove(rule, -1) } label: { Image(systemName: "chevron.up") }
-            Button { onMove(rule, 1) } label: { Image(systemName: "chevron.down") }
-            Button { onDelete(rule) } label: { Image(systemName: "trash") }
         }
         .buttonStyle(.borderless)
+        .padding(.vertical, 2)
+    }
+
+    /// The profile, or the app as "app:<bundle id>".
+    private var target: Binding<String> {
+        Binding(
+            get: { rule.targetApp.isEmpty ? rule.profile : Self.appPrefix + rule.targetApp },
+            set: { value in
+                if value == Self.chooseApp {
+                    chooseTargetApp()
+                } else if !value.hasPrefix(Self.appPrefix) {
+                    rule.profile = value
+                    rule.targetApp = ""
+                    rule.targetScheme = ""
+                }
+            })
+    }
+
+    private func chooseTargetApp() {
+        let panel = NSOpenPanel()
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowedContentTypes = [.application]
+        panel.message = String(localized: "Choose the app to open these links in")
+        guard panel.runModal() == .OK, let url = panel.url, let bundleID = Bundle(url: url)?.bundleIdentifier else { return }
+        rule.targetApp = bundleID
+        rule.targetScheme = AppInfo.linkScheme(of: url) ?? ""
     }
 
     private var runningApps: [String] {
@@ -141,5 +196,25 @@ private struct RuleRow: View {
             .filter { $0.activationPolicy == .regular }
             .compactMap(\.bundleIdentifier))
             .sorted()
+    }
+}
+
+/// Names and link schemes of installed apps.
+enum AppInfo {
+    static func name(of bundleID: String) -> String {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+    }
+
+    /// The scheme to pass web links to the app with: `nil` if it opens https links itself, else the first
+    /// scheme it registers (e.g. `ktalk` for Kontur Talk, which takes ktalk://host/room for https://host/room).
+    static func linkScheme(of app: URL) -> String? {
+        let opensWeb = NSWorkspace.shared.urlsForApplications(toOpen: URL(string: "https://example.com")!)
+            .contains { $0.standardizedFileURL == app.standardizedFileURL }
+        guard !opensWeb,
+              let types = Bundle(url: app)?.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]]
+        else { return nil }
+        return types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
+            .first { !["http", "https", "file"].contains($0.lowercased()) }
     }
 }

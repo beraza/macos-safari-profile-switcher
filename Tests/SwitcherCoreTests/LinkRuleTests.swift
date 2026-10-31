@@ -60,6 +60,36 @@ final class LinkRuleTests: XCTestCase {
         XCTAssertEqual(LinkCleaner.clean(plain, stripTracking: true), plain)
     }
 
+    func testRuleOpensAppWithItsScheme() {
+        let rules = [
+            LinkRule(pattern: "*.ktalk.ru", profile: "", targetApp: "kontur.talk", targetScheme: "ktalk"),
+            LinkRule(pattern: "ktalk.ru", profile: "Работа"),
+        ]
+        let room = URL(string: "https://company.ktalk.ru/abc-def?lang=ru")!
+        let target = RuleMatcher.target(for: room, sourceApp: "com.tinyspeck.slackmacgap", rules: rules)
+        XCTAssertEqual(target, .app(bundleID: "kontur.talk", scheme: "ktalk"))
+        XCTAssertEqual(target?.url(for: room).absoluteString, "ktalk://company.ktalk.ru/abc-def?lang=ru")
+        XCTAssertNil(RuleMatcher.profile(for: room, sourceApp: nil, rules: Array(rules.prefix(1))),
+                     "app rules don't pick a profile for tabs")
+        XCTAssertEqual(LinkTarget.app(bundleID: "x", scheme: "").url(for: room), room)
+    }
+
+    func testAppRuleSkippedForLinksFromThatApp() {
+        let rules = [
+            LinkRule(pattern: "ktalk.ru", profile: "", targetApp: "kontur.talk", targetScheme: "ktalk"),
+            LinkRule(pattern: "ktalk.ru", profile: "Работа"),
+        ]
+        let link = URL(string: "https://company.ktalk.ru/login")!
+        XCTAssertEqual(RuleMatcher.target(for: link, sourceApp: "Kontur.Talk", rules: rules), .profile("Работа"))
+    }
+
+    func testDecodesRulesSavedBeforeAppTargets() throws {
+        let old = #"[{"id":"9E1C3A86-1B0C-4F0A-8E57-0D1C5C1B2A11","pattern":"a.com","sourceApp":"","profile":"P"}]"#
+        let rules = try JSONDecoder().decode([LinkRule].self, from: Data(old.utf8))
+        XCTAssertEqual(rules.first?.target, .profile("P"))
+        XCTAssertEqual(rules.first?.targetApp, "")
+    }
+
     func testUnwrapOnlyAcceptsWebLinks() {
         let script = URL(string: "https://l.facebook.com/l.php?u=javascript:alert(1)")!
         XCTAssertEqual(LinkCleaner.clean(script, stripTracking: true), script)

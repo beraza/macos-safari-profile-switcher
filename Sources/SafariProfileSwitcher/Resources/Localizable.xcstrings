@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@ — %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — %@"
+          }
+        }
+      }
+    },
     "%@ — always for %@": {
       "localizations": {
         "ru": {
@@ -163,12 +173,32 @@
         }
       }
     },
+    "App %@ not found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение %@ не найдено"
+          }
+        }
+      }
+    },
     "App icon": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Значок приложения"
+          }
+        }
+      }
+    },
+    "App “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение «%@»"
           }
         }
       }
@@ -243,6 +273,16 @@
         }
       }
     },
+    "Bundle id of the app the link is clicked in; empty means any app": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bundle id приложения, в котором нажимают ссылку; пусто — любое приложение"
+          }
+        }
+      }
+    },
     "Can't register (error %@)": {
       "localizations": {
         "ru": {
@@ -279,6 +319,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выберите профили в настройках"
+          }
+        }
+      }
+    },
+    "Choose the app to open these links in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите приложение, в котором открывать эти ссылки"
           }
         }
       }
@@ -723,6 +773,16 @@
         }
       }
     },
+    "Opens in the app “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откроется в приложении «%@»"
+          }
+        }
+      }
+    },
     "Opens in “%@”": {
       "localizations": {
         "ru": {
@@ -739,6 +799,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Оранжевый"
+          }
+        }
+      }
+    },
+    "Other app…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другое приложение…"
           }
         }
       }
@@ -1063,6 +1133,16 @@
         }
       }
     },
+    "Scheme": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Схема"
+          }
+        }
+      }
+    },
     "Select All": {
       "localizations": {
         "ru": {
@@ -1263,6 +1343,16 @@
         }
       }
     },
+    "The app's own link scheme: https://… becomes scheme://…; empty passes the link as it is": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Собственная схема ссылок приложения: https://… станет схема://…; пусто — ссылка передаётся как есть"
+          }
+        }
+      }
+    },
     "The badge is the profile of Safari's front window; faded while another app is in front.": {
       "localizations": {
         "ru": {
@@ -1398,7 +1488,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "любое приложение"
+            "value": "любого приложения"
           }
         }
       }
@@ -1413,12 +1503,22 @@
         }
       }
     },
-    "example.com includes subdomains, *.example.com only subdomains, github.com/org a path. The app is a bundle id, e.g. com.tinyspeck.slackmacgap; empty means any app. Rules also pick the profile for “Move tab to the next profile”.": {
+    "example.com includes subdomains, *.example.com only subdomains, github.com/org a path. “From” is the app the link is clicked in, as a bundle id (e.g. com.tinyspeck.slackmacgap); empty means any app. A rule can also open links in another app, such as a video call app: if the app takes its own scheme instead of https (Kontur Talk: ktalk), set it next to the app. Profile rules also pick the profile for “Move tab to the next profile”.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "example.com включает поддомены, *.example.com — только поддомены, github.com/org задаёт путь. Приложение указывается как bundle id, например com.tinyspeck.slackmacgap; пусто — любое приложение. Правила также выбирают профиль для «Перенести вкладку в следующий профиль»."
+            "value": "example.com включает поддомены, *.example.com — только поддомены, github.com/org задаёт путь. «Из» — приложение, в котором нажимают ссылку, в виде bundle id (например, com.tinyspeck.slackmacgap); пусто — любое приложение. Правило может открывать ссылку и в другом приложении, например в приложении видеосвязи: если оно принимает свою схему вместо https (у Толка — ktalk), укажите её рядом с приложением. Правила с профилем также выбирают профиль для «Перенести вкладку в следующий профиль»."
+          }
+        }
+      }
+    },
+    "from": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "из"
           }
         }
       }
@@ -1429,6 +1529,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "нет окон"
+          }
+        }
+      }
+    },
+    "open in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "открыть в"
           }
         }
       }

@@ -25,6 +25,8 @@ final class AppController: ObservableObject {
     private let hudController: HUDController
     var hud: SwitcherHUD { hudController.hud }
     private let observer = SafariObserver()
+    /// Safari's front window when another app came to the front.
+    private var lastWindowID: Int?
     /// Safari is the front app.
     @Published private(set) var safariActive =
         NSWorkspace.shared.frontmostApplication?.bundleIdentifier == SafariController.bundleID
@@ -45,7 +47,7 @@ final class AppController: ObservableObject {
         hudController.knownProfiles = { [weak self] in self?.knownProfiles ?? [] }
         hudController.onSwitchNow = { [weak self] outsideSafari in
             // Like a quick ⌘⇥: from another app, just go to Safari; in Safari, switch the profile.
-            if outsideSafari { self?.openSafari() } else { self?.perform { try await $0.switchProfile() } }
+            if outsideSafari { self?.showLastWindow() } else { self?.perform { try await $0.switchProfile() } }
         }
         hudController.onActivate = { [weak self] item, windows in
             self?.perform { try await $0.activate(item, windows: windows) }
@@ -83,6 +85,7 @@ final class AppController: ObservableObject {
                 // Window ids start over when Safari launches again.
                 self?.settings.detachedFrom = [:]
                 self?.currentProfile = nil
+                self?.lastWindowID = nil
             }
             self?.observer.start()
             self?.updateCurrentProfile()
@@ -122,6 +125,10 @@ final class AppController: ObservableObject {
     }
 
     private func frontAppChanged(isSafari: Bool) {
+        if safariActive && !isSafari {
+            // The window the menu bar badge keeps showing; going back to Safari brings exactly this one.
+            lastWindowID = (try? SafariController.windows())?.first?.id
+        }
         safariActive = isSafari
         if !isSafari && hudController.isActive {
             hudController.cancel()
@@ -234,10 +241,28 @@ final class AppController: ObservableObject {
             SafariController.runningApp?.activate()
             perform { try await $0.switchProfile() }
         case .activateSafari, .switchProfile, .showSwitcher:
-            openSafari()
+            showLastWindow()
         case .passThrough:
             // Not registered outside Safari; a press can still arrive while the front app changes.
             break
+        }
+    }
+
+    /// Back to Safari from another app: the window that was in front when Safari was left (the one the
+    /// menu bar badge shows), even if it's minimized or another Safari window got in front meanwhile.
+    /// Launches Safari if needed.
+    private func showLastWindow() {
+        guard SafariController.runningApp != nil, let id = lastWindowID else {
+            openSafari()
+            return
+        }
+        perform { controller in
+            guard (try SafariController.windows()).contains(where: { $0.id == id }) else {
+                controller.openSafari()
+                return
+            }
+            try SafariController.focus(windowID: id)
+            SafariController.runningApp?.activate()
         }
     }
 

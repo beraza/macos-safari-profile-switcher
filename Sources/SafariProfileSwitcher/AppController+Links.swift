@@ -3,11 +3,11 @@ import SwitcherCore
 
 /// Links from other apps while this app is the default browser.
 extension AppController {
-    /// Profile for a link opened from another app: rule, default profile (or `AppSettings.safariDecides`),
-    /// or `nil` to ask.
-    func linkProfile(for url: URL, sourceApp: String?) -> String? {
-        RuleMatcher.profile(for: url, sourceApp: sourceApp, rules: settings.linkRules)
-            ?? (settings.defaultLinkProfile.isEmpty ? nil : settings.defaultLinkProfile)
+    /// Where a link from another app goes: a rule's profile or app, the default profile (or
+    /// `AppSettings.safariDecides`), or `nil` to ask.
+    func linkTarget(for url: URL, sourceApp: String?) -> LinkTarget? {
+        RuleMatcher.target(for: url, sourceApp: sourceApp, rules: settings.linkRules)
+            ?? (settings.defaultLinkProfile.isEmpty ? nil : .profile(settings.defaultLinkProfile))
     }
 
     /// Opens a link from another app in the profile its rules pick; asks when none does or ⌥ is held.
@@ -15,12 +15,15 @@ extension AppController {
         let url = url.isFileURL ? url : LinkCleaner.clean(
             url, unwrapRedirects: settings.unwrapRedirects, stripTracking: settings.stripTrackingParams)
         log.info("link \(url.absoluteString, privacy: .private) from \(sourceApp ?? "?", privacy: .public)")
-        if !forceChoice, let profile = linkProfile(for: url, sourceApp: sourceApp) {
-            if profile == AppSettings.safariDecides {
+        if !forceChoice, let target = linkTarget(for: url, sourceApp: sourceApp) {
+            switch target {
+            case .profile(AppSettings.safariDecides):
                 // Safari applies its own Settings → Websites → "Open links in profile" to links from other apps.
                 openInSafari(url)
-            } else {
+            case .profile(let profile):
                 route(url, to: profile)
+            case .app(let bundleID, _):
+                open(target.url(for: url), inApp: bundleID, fallback: url)
             }
         } else {
             chooseProfile(for: url)
@@ -46,6 +49,23 @@ extension AppController {
             self?.fail(String(localized: "Couldn't open the link in “\(name)”: \(error.localizedDescription)"))
             self?.openInSafari(url)
         })
+    }
+
+    /// Opens a link in another app (as the rule rewrote it); if that fails, the original link goes to Safari.
+    private func open(_ url: URL, inApp bundleID: String, fallback: URL) {
+        guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            fail(String(localized: "App \(bundleID) not found"))
+            openInSafari(fallback)
+            return
+        }
+        NSWorkspace.shared.open([url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration()) {
+            [weak self] _, error in
+            guard let error else { return }
+            Task { @MainActor in
+                self?.fail(error.localizedDescription)
+                self?.openInSafari(fallback)
+            }
+        }
     }
 
     func openInSafari(_ url: URL) {

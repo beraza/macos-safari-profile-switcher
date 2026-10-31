@@ -63,7 +63,10 @@ enum SelfTest {
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(defaults: defaults)
         settings.switchProfiles = ["Личное", "Работа"]
-        settings.linkRules = [LinkRule(pattern: "github.com/work-org", sourceApp: "com.tinyspeck.slackmacgap", profile: "Работа")]
+        settings.linkRules = [
+            LinkRule(pattern: "github.com/work-org", sourceApp: "com.tinyspeck.slackmacgap", profile: "Работа"),
+            LinkRule(pattern: "*.ktalk.ru", profile: "", targetApp: "kontur.talk", targetScheme: "ktalk"),
+        ]
         let controller = AppController(customSettings: settings, promptForAccessibility: false)
         for tab in 0..<4 {
             let window = NSWindow(contentViewController: NSHostingController(
@@ -200,9 +203,9 @@ enum SelfTest {
         settings.linkRules = [LinkRule(pattern: "example.com", sourceApp: "com.apple.mail", profile: profile)]
         let controller = AppController(customSettings: settings, promptForAccessibility: false)
 
-        check(controller.linkProfile(for: URL(string: "https://www.example.com/x")!, sourceApp: "com.apple.mail") == profile,
+        check(controller.linkTarget(for: URL(string: "https://www.example.com/x")!, sourceApp: "com.apple.mail") == .profile(profile),
               "links: rule matches (\(profile))")
-        check(controller.linkProfile(for: URL(string: "https://www.example.com/x")!, sourceApp: "com.apple.Notes") == AppSettings.safariDecides,
+        check(controller.linkTarget(for: URL(string: "https://www.example.com/x")!, sourceApp: "com.apple.Notes") == .profile(AppSettings.safariDecides),
               "links: rule for another app doesn't, Safari decides")
         controller.openLink(URL(string: "https://example.com/?spsw-link&utm_source=selftest")!, sourceApp: "com.apple.mail")
         pause(1.5)
