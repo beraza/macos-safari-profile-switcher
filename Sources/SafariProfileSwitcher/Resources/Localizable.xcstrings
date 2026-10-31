@@ -1,0 +1,1198 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ — always for %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — всегда для %@"
+          }
+        }
+      }
+    },
+    "%lld ms": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld мс"
+          }
+        }
+      }
+    },
+    "%lld windows": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld window"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld windows"
+                }
+              }
+            }
+          }
+        },
+        "ru": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld окна"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld окон"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld окно"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld окна"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Accessibility": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Универсальный доступ"
+          }
+        }
+      }
+    },
+    "Activate Safari": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Активировать Safari"
+          }
+        }
+      }
+    },
+    "Activate Safari and switch profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Активировать Safari и переключить профиль"
+          }
+        }
+      }
+    },
+    "Add rule": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить правило"
+          }
+        }
+      }
+    },
+    "Also move existing windows onto the current window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ставить на место текущего и уже открытые окна"
+          }
+        }
+      }
+    },
+    "Always open %@ in “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всегда открывать %@ в профиле «%@»"
+          }
+        }
+      }
+    },
+    "Another app": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другое приложение"
+          }
+        }
+      }
+    },
+    "App": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложение"
+          }
+        }
+      }
+    },
+    "As the default browser, the app opens links from other apps in the profile chosen by the rules below. Hold ⌥ while clicking a link to choose the profile.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как браузер по умолчанию приложение открывает ссылки из других приложений в профиле, который выбирают правила ниже. Удерживайте ⌥ при клике по ссылке, чтобы выбрать профиль вручную."
+          }
+        }
+      }
+    },
+    "Ask": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спрашивать"
+          }
+        }
+      }
+    },
+    "Asks for a profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спросит профиль"
+          }
+        }
+      }
+    },
+    "Can't register (error %@)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось зарегистрировать (ошибка %@)"
+          }
+        }
+      }
+    },
+    "Can't tell the profile of this window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось определить профиль этого окна"
+          }
+        }
+      }
+    },
+    "Choose two different profiles in Settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Укажите два разных профиля в настройках"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть"
+          }
+        }
+      }
+    },
+    "Close a window that only shows the start page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрывать окно, если в нём только стартовая страница"
+          }
+        }
+      }
+    },
+    "Code %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код %@"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать"
+          }
+        }
+      }
+    },
+    "Copy the tab instead of moving it to the other profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать вкладку в другой профиль, а не переносить"
+          }
+        }
+      }
+    },
+    "Couldn't open the link in “%@”: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть ссылку в профиле «%@»: %@"
+          }
+        }
+      }
+    },
+    "Cut": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вырезать"
+          }
+        }
+      }
+    },
+    "Default": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По умолчанию"
+          }
+        }
+      }
+    },
+    "Default browser": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Браузер по умолчанию"
+          }
+        }
+      }
+    },
+    "Delay before it appears": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задержка перед появлением"
+          }
+        }
+      }
+    },
+    "Diagnostics": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Диагностика"
+          }
+        }
+      }
+    },
+    "Edit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правка"
+          }
+        }
+      }
+    },
+    "Enter a link with http:// or https://": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите ссылку с http:// или https://"
+          }
+        }
+      }
+    },
+    "First profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Первый профиль"
+          }
+        }
+      }
+    },
+    "From app": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Из приложения"
+          }
+        }
+      }
+    },
+    "General": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общие"
+          }
+        }
+      }
+    },
+    "Give back to Safari": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть Safari"
+          }
+        }
+      }
+    },
+    "In Safari": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Safari"
+          }
+        }
+      }
+    },
+    "Keep full screen for the new window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранять полноэкранный режим для нового окна"
+          }
+        }
+      }
+    },
+    "Last error": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Последняя ошибка"
+          }
+        }
+      }
+    },
+    "Launch at login": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускать при входе в систему"
+          }
+        }
+      }
+    },
+    "Link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылка"
+          }
+        }
+      }
+    },
+    "Links": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылки"
+          }
+        }
+      }
+    },
+    "Make default": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать браузером по умолчанию"
+          }
+        }
+      }
+    },
+    "Menu bar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Строка меню"
+          }
+        }
+      }
+    },
+    "Move tab back to the main window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вернуть вкладку в общее окно"
+          }
+        }
+      }
+    },
+    "Move tab to a separate window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вынести вкладку в отдельное окно"
+          }
+        }
+      }
+    },
+    "Move tab to the other profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести вкладку в другой профиль"
+          }
+        }
+      }
+    },
+    "New Window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое окно"
+          }
+        }
+      }
+    },
+    "No Accessibility permission": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет разрешения Универсального доступа"
+          }
+        }
+      }
+    },
+    "No other window of this profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет другого окна этого профиля"
+          }
+        }
+      }
+    },
+    "No “New Window” menu item for profile “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не найден пункт меню «Новое окно» для профиля «%@»"
+          }
+        }
+      }
+    },
+    "Not asked yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё не запрашивалось"
+          }
+        }
+      }
+    },
+    "Not selected": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не выбран"
+          }
+        }
+      }
+    },
+    "Nothing (leave the shortcut to other apps)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ничего (оставить сочетание другим приложениям)"
+          }
+        }
+      }
+    },
+    "Nothing to move: the tab shows the start page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нечего переносить: во вкладке стартовая страница"
+          }
+        }
+      }
+    },
+    "Off": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выкл."
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть настройки"
+          }
+        }
+      }
+    },
+    "Open in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывать в"
+          }
+        }
+      }
+    },
+    "Open in Safari as usual": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть в Safari как обычно"
+          }
+        }
+      }
+    },
+    "Open the new window in place of the current one": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывать новое окно на месте текущего"
+          }
+        }
+      }
+    },
+    "Opens in “%@”": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откроется в профиле «%@»"
+          }
+        }
+      }
+    },
+    "Other links": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остальные ссылки"
+          }
+        }
+      }
+    },
+    "Other windows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другие окна"
+          }
+        }
+      }
+    },
+    "Paste": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставить"
+          }
+        }
+      }
+    },
+    "Permissions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешения"
+          }
+        }
+      }
+    },
+    "Pick a running app": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать из запущенных приложений"
+          }
+        }
+      }
+    },
+    "Press keys…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите сочетание…"
+          }
+        }
+      }
+    },
+    "Profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профиль"
+          }
+        }
+      }
+    },
+    "Profiles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили"
+          }
+        }
+      }
+    },
+    "Quit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выход"
+          }
+        }
+      }
+    },
+    "Refresh profile list": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить список профилей"
+          }
+        }
+      }
+    },
+    "Registered only while Safari is the front app, so other apps keep these keys.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работают, только пока Safari на переднем плане, поэтому в других приложениях эти сочетания свободны."
+          }
+        }
+      }
+    },
+    "Remove tracking parameters (utm_*, fbclid, …) and unwrap redirect links": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалять параметры отслеживания (utm_*, fbclid, …) и разворачивать ссылки-редиректы"
+          }
+        }
+      }
+    },
+    "Request": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запросить"
+          }
+        }
+      }
+    },
+    "Rules (the first match wins)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правила (срабатывает первое подходящее)"
+          }
+        }
+      }
+    },
+    "Safari automation": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Управление Safari"
+          }
+        }
+      }
+    },
+    "Safari did not open a new window in time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safari не открыл новое окно вовремя"
+          }
+        }
+      }
+    },
+    "Safari is not running": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safari не запущен"
+          }
+        }
+      }
+    },
+    "Safari not found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safari не найден"
+          }
+        }
+      }
+    },
+    "Safari profiles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили Safari"
+          }
+        }
+      }
+    },
+    "Save Safari diagnostics": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить диагностику Safari"
+          }
+        }
+      }
+    },
+    "Second profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Второй профиль"
+          }
+        }
+      }
+    },
+    "Select All": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать все"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки…"
+          }
+        }
+      }
+    },
+    "Shortcut: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шорткат: %@"
+          }
+        }
+      }
+    },
+    "Shortcuts": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шорткаты"
+          }
+        }
+      }
+    },
+    "Show": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать"
+          }
+        }
+      }
+    },
+    "Show the active profile in the menu bar": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать активный профиль в строке меню"
+          }
+        }
+      }
+    },
+    "Site": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сайт"
+          }
+        }
+      }
+    },
+    "Start Page": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стартовая страница"
+          }
+        }
+      }
+    },
+    "Switch profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключить профиль"
+          }
+        }
+      }
+    },
+    "Switch shortcut outside Safari": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шорткат переключения вне Safari"
+          }
+        }
+      }
+    },
+    "Switcher (hold the modifier of the switch shortcut)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель (удерживайте модификатор шортката переключения)"
+          }
+        }
+      }
+    },
+    "Switcher: cancel": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: отмена"
+          }
+        }
+      }
+    },
+    "Switcher: next": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: следующий"
+          }
+        }
+      }
+    },
+    "Switcher: previous": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: предыдущий"
+          }
+        }
+      }
+    },
+    "Switching": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключение"
+          }
+        }
+      }
+    },
+    "Taken by another app or the system": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Занято другим приложением или системой"
+          }
+        }
+      }
+    },
+    "The switch shortcut also selects the next item. Release the modifier to confirm.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шорткат переключения тоже выбирает следующий элемент. Отпустите модификатор, чтобы подтвердить."
+          }
+        }
+      }
+    },
+    "The tab is already alone in its window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вкладка и так одна в своём окне"
+          }
+        }
+      }
+    },
+    "Try a link": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить ссылку"
+          }
+        }
+      }
+    },
+    "Turn off": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключить"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить"
+          }
+        }
+      }
+    },
+    "While the switcher is open": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока открыт переключатель"
+          }
+        }
+      }
+    },
+    "Window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окно"
+          }
+        }
+      }
+    },
+    "Windows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окна"
+          }
+        }
+      }
+    },
+    "Windows and menus of Safari in ~/Library/Logs/SafariProfileSwitcher/diagnostics.txt": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окна и меню Safari в ~/Library/Logs/SafariProfileSwitcher/diagnostics.txt"
+          }
+        }
+      }
+    },
+    "any app": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "любое приложение"
+          }
+        }
+      }
+    },
+    "could not compile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "не удалось скомпилировать"
+          }
+        }
+      }
+    },
+    "example.com includes subdomains, *.example.com only subdomains, github.com/org a path. The app is a bundle id, e.g. com.tinyspeck.slackmacgap; empty means any app. Rules also pick the profile for “Move tab to the other profile”.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "example.com — вместе с поддоменами, *.example.com — только поддомены, github.com/org — путь. Приложение — bundle id, например com.tinyspeck.slackmacgap; пусто — любое приложение. Правила также выбирают профиль для «Перенести вкладку в другой профиль»."
+          }
+        }
+      }
+    },
+    "no windows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет окон"
+          }
+        }
+      }
+    },
+    "“%@” now uses %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» теперь на %@."
+          }
+        }
+      }
+    },
+    "“%@” was turned off: it used the same keys.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«%@» отключён: у него было то же сочетание."
+          }
+        }
+      }
+    },
+    "⚠️ Denied": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ Запрещено"
+          }
+        }
+      }
+    },
+    "⚠️ No access": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⚠️ Нет доступа"
+          }
+        }
+      }
+    },
+    "✅ Allowed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✅ Разрешено"
+          }
+        }
+      }
+    },
+    "✅ This app": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✅ Это приложение"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

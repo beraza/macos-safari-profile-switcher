@@ -1,0 +1,83 @@
+import Foundation
+
+/// What to do to move the current tab to another profile.
+public struct TabTransferPlan: Equatable, Sendable {
+    public enum Target: Equatable, Sendable {
+        /// Open the URL in a new tab of this window (the front-most window of the profile).
+        case window(id: Int)
+        /// No window of the profile is open: open one and load the URL there.
+        case newWindow(profile: String)
+    }
+
+    public enum Cleanup: Equatable, Sendable {
+        case none
+        case closeTab(windowID: Int, index: Int)
+        /// The tab was the only one in its window.
+        case closeWindow(id: Int)
+    }
+
+    public let profile: String
+    public let target: Target
+    public let cleanup: Cleanup
+
+    public init(profile: String, target: Target, cleanup: Cleanup) {
+        self.profile = profile
+        self.target = target
+        self.cleanup = cleanup
+    }
+}
+
+public enum TabTransferError: Error, Equatable, Sendable {
+    case profilesNotConfigured
+    /// The tab shows the start page; there's no URL to move.
+    case nothingToMove
+}
+
+public enum TabTransfer {
+    /// - Parameters:
+    ///   - tab: the current tab of the front window.
+    ///   - windows: Safari windows, front-most first.
+    ///   - preferredProfile: profile a link rule picks for the URL; used unless the tab is already there.
+    ///   - keepSource: copy instead of move.
+    public static func plan(
+        tab: SafariTab, windows: [SafariWindow], first: String, second: String,
+        preferredProfile: String? = nil, keepSource: Bool = false
+    ) -> Result<TabTransferPlan, TabTransferError> {
+        guard !first.isEmpty, !second.isEmpty, first != second else { return .failure(.profilesNotConfigured) }
+        guard !tab.isStartPage else { return .failure(.nothingToMove) }
+        let profiles = [first, second] + (preferredProfile.map { [$0] } ?? [])
+        func profile(ofTitle title: String) -> String? { ProfileMatcher.profile(ofTitle: title, among: profiles) }
+
+        let current = profile(ofTitle: tab.windowTitle)
+        let target = preferredProfile.flatMap { $0.isEmpty || $0 == current ? nil : $0 }
+            ?? (current == second ? first : second)
+        let destination: TabTransferPlan.Target = windows
+            .first { $0.id != tab.windowID && profile(ofTitle: $0.title) == target }
+            .map { .window(id: $0.id) } ?? .newWindow(profile: target)
+        let cleanup: TabTransferPlan.Cleanup = keepSource ? .none
+            : tab.tabCount <= 1 ? .closeWindow(id: tab.windowID)
+            : .closeTab(windowID: tab.windowID, index: tab.index)
+        return .success(TabTransferPlan(profile: target, target: destination, cleanup: cleanup))
+    }
+}
+
+public enum TabAttach {
+    /// Window to move a tab back into: the one it was detached from, if still open and of the same profile,
+    /// otherwise the front-most other window of the same profile.
+    /// - Parameters:
+    ///   - windows: Safari windows, front-most first.
+    ///   - detachedFrom: the window the source window's tab was detached from, if known.
+    public static func target(
+        windows: [SafariWindow], sourceWindowID: Int, profiles: [String], detachedFrom: Int?
+    ) -> Int? {
+        guard let source = windows.first(where: { $0.id == sourceWindowID }) else { return nil }
+        let profile = ProfileMatcher.profile(ofTitle: source.title, among: profiles)
+        let candidates = windows.filter {
+            $0.id != sourceWindowID && ProfileMatcher.profile(ofTitle: $0.title, among: profiles) == profile
+        }
+        if let detachedFrom, candidates.contains(where: { $0.id == detachedFrom }) {
+            return detachedFrom
+        }
+        return candidates.first?.id
+    }
+}

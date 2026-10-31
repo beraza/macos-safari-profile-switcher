@@ -1,0 +1,22 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAppleEventsUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needed to read the list of Safari windows and to switch and close them."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нужно, чтобы читать список окон Safari, переключать и закрывать их."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
