@@ -214,9 +214,13 @@ enum SafariController {
 
     // MARK: - Windows and tabs
 
-    /// Browser windows, front-most first.
+    /// Profiles found by the last `detectProfiles()`; windows of none of them are Private Browsing ones.
+    private static var realProfiles: [String] = []
+
+    /// Browser windows, front-most first. Empty while Safari isn't running: AppleScript would launch it.
     static func windows() throws -> [SafariWindow] {
-        parseWindows(try call("listWindows"))
+        guard runningApp != nil else { return [] }
+        return parseWindows(try call("listWindows"))
     }
 
     static func parseWindows(_ list: NSAppleEventDescriptor) -> [SafariWindow] {
@@ -226,11 +230,13 @@ enum SafariController {
                   let id = item.atIndex(1)?.int32Value,
                   let tabs = item.atIndex(3)?.int32Value
             else { return nil }
+            let title = item.atIndex(2)?.stringValue ?? ""
             return SafariWindow(
                 id: Int(id),
-                title: item.atIndex(2)?.stringValue ?? "",
+                title: title,
                 tabCount: Int(tabs),
-                firstTabURL: item.atIndex(4)?.stringValue ?? ""
+                firstTabURL: item.atIndex(4)?.stringValue ?? "",
+                isPrivate: ProfileMatcher.isPrivate(title: title, realProfiles: realProfiles)
             )
         }
     }
@@ -239,12 +245,14 @@ enum SafariController {
     static func currentTab() throws -> SafariTab {
         let info = try call("currentTabInfo")
         guard info.numberOfItems == 5 else { throw SafariError.noWindows }
+        let title = info.atIndex(2)?.stringValue ?? ""
         return SafariTab(
             windowID: Int(info.atIndex(1)?.int32Value ?? 0),
-            windowTitle: info.atIndex(2)?.stringValue ?? "",
+            windowTitle: title,
             index: Int(info.atIndex(3)?.int32Value ?? 0),
             tabCount: Int(info.atIndex(4)?.int32Value ?? 0),
-            url: info.atIndex(5)?.stringValue ?? "")
+            url: info.atIndex(5)?.stringValue ?? "",
+            isPrivate: ProfileMatcher.isPrivate(title: title, realProfiles: realProfiles))
     }
 
     static func bounds(windowID: Int) throws -> CGRect? {
@@ -340,12 +348,15 @@ enum SafariController {
 
     // MARK: - Menu (Accessibility)
 
-    /// Opens a new window of `profile` by pressing its item in Safari's File menu.
+    /// Opens a new window of `profile` (or a Private Browsing one) by pressing its item in Safari's File menu.
     static func openNewWindow(profile: String) throws {
         guard AXIsProcessTrusted() else { throw SafariError.accessibilityDenied }
         guard let fileMenu = barMenu(at: 2) else { throw SafariError.notRunning }
+        let items = menuItems(in: fileMenu)
         // Only an exact «Profile» match: a substring could hit another profile ("Work" in «Work Old») or any item.
-        let item = menuItems(in: fileMenu).first { quotedName(in: $0.title) == profile && $0.enabled }
+        let item = profile == ProfileMatcher.privateProfile
+            ? items.first { newPrivateWindowTitles.contains($0.title) && $0.enabled }
+            : items.first { quotedName(in: $0.title) == profile && $0.enabled }
         guard let item else { throw SafariError.menuItemNotFound(profile) }
         try press(item)
     }
@@ -362,19 +373,22 @@ enum SafariController {
         return true
     }
 
-    /// "Move Tab to New Window" in English and in the language Safari runs in (from Safari's own MainMenu.strings).
-    private static let moveTabTitles: Set<String> = {
-        var titles: Set<String> = ["Move Tab to New Window"]
+    private static let moveTabTitles = menuTitles(english: "Move Tab to New Window", key: "869.title")
+    private static let newPrivateWindowTitles = menuTitles(english: "New Private Window", key: "CV2-YC-yYw.title")
+
+    /// A menu item title in English and in the language Safari runs in (from Safari's own MainMenu.strings).
+    private static func menuTitles(english: String, key: String) -> Set<String> {
+        var titles: Set<String> = [english]
         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID),
            let safari = Bundle(url: url),
            let language = Bundle.preferredLocalizations(from: safari.localizations).first,
            let path = safari.path(forResource: "MainMenu", ofType: "strings", inDirectory: nil, forLocalization: language),
            let strings = NSDictionary(contentsOfFile: path),
-           let title = strings["869.title"] as? String {
+           let title = strings[key] as? String {
             titles.insert(title)
         }
         return titles
-    }()
+    }
 
     /// Profile names found in the File menu ("New Window «Profile»" items), falling back to window title prefixes.
     static func detectProfiles() -> [String] {
@@ -388,8 +402,8 @@ enum SafariController {
                 window.title.range(of: ProfileMatcher.separator).map { String(window.title[..<$0.lowerBound]) }
             }
         }
-        var seen = Set<String>()
-        return names.filter { seen.insert($0).inserted }
+        realProfiles = ProfileMatcher.cleaned(names)
+        return realProfiles
     }
 
     struct MenuItem {
@@ -454,7 +468,7 @@ enum SafariController {
         do {
             lines.append("AppleScript windows (front first):")
             for window in try windows() {
-                lines.append("  id=\(window.id) tabs=\(window.tabCount) url=\(window.firstTabURL) title=\(window.title)")
+                lines.append("  id=\(window.id) tabs=\(window.tabCount)\(window.isPrivate ? " private" : "") url=\(window.firstTabURL) title=\(window.title)")
             }
         } catch {
             lines.append("  error: \(error.localizedDescription)")
@@ -475,6 +489,7 @@ enum SafariController {
             }
         }
         lines.append("Move Tab titles: \(moveTabTitles.sorted())")
+        lines.append("New Private Window titles: \(newPrivateWindowTitles.sorted())")
         lines.append("Detected profiles: \(detectProfiles())")
         return lines.joined(separator: "\n")
     }

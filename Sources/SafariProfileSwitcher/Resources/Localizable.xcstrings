@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ (the last Safari window)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (последнее окно Safari)"
+          }
+        }
+      }
+    },
     "%@ — always for %@": {
       "localizations": {
         "ru": {
@@ -153,6 +163,16 @@
         }
       }
     },
+    "App icon": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значок приложения"
+          }
+        }
+      }
+    },
     "As the default browser, the app opens links from other apps in the profile chosen by the rules below. Hold ⌥ while clicking a link to choose the profile.": {
       "localizations": {
         "ru": {
@@ -183,22 +203,52 @@
         }
       }
     },
+    "Badge": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значок"
+          }
+        }
+      }
+    },
+    "Badge color": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвет значка"
+          }
+        }
+      }
+    },
+    "Badge text (up to 4 characters)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст значка (до 4 символов)"
+          }
+        }
+      }
+    },
+    "Blue": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Синий"
+          }
+        }
+      }
+    },
     "Can't register (error %@)": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось зарегистрировать (ошибка %@)"
-          }
-        }
-      }
-    },
-    "Can't tell profiles from Safari window titles": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удаётся определить профиль по заголовкам окон Safari"
           }
         }
       }
@@ -273,12 +323,12 @@
         }
       }
     },
-    "Copy the tab instead of moving it to the other profile": {
+    "Copy the tab instead of moving it to the next profile": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Копировать вкладку в другой профиль, а не переносить"
+            "value": "Копировать вкладку в следующий профиль, а не переносить"
           }
         }
       }
@@ -289,6 +339,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось открыть ссылку в профиле «%@»: %@"
+          }
+        }
+      }
+    },
+    "Current · %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текущий · %@"
           }
         }
       }
@@ -393,6 +453,26 @@
         }
       }
     },
+    "Graphite": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Графитовый"
+          }
+        }
+      }
+    },
+    "Green": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зелёный"
+          }
+        }
+      }
+    },
     "In Safari": {
       "localizations": {
         "ru": {
@@ -473,6 +553,16 @@
         }
       }
     },
+    "Menu bar shows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В строке меню"
+          }
+        }
+      }
+    },
     "Move tab back to the main window": {
       "localizations": {
         "ru": {
@@ -493,12 +583,22 @@
         }
       }
     },
-    "Move tab to the other profile": {
+    "Move tab to the next profile": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Перенести вкладку в другой профиль"
+            "value": "Перенести вкладку в следующий профиль"
+          }
+        }
+      }
+    },
+    "New Private Window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое частное окно"
           }
         }
       }
@@ -603,12 +703,12 @@
         }
       }
     },
-    "Open in Safari as usual": {
+    "Open in Safari (its website settings decide)": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Открыть в Safari как обычно"
+            "value": "Открыть в Safari (по его настройкам сайтов)"
           }
         }
       }
@@ -629,6 +729,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Откроется в профиле «%@»"
+          }
+        }
+      }
+    },
+    "Orange": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оранжевый"
           }
         }
       }
@@ -683,12 +793,32 @@
         }
       }
     },
+    "Pink": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Розовый"
+          }
+        }
+      }
+    },
     "Press keys…": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Нажмите сочетание…"
+          }
+        }
+      }
+    },
+    "Private Browsing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Частный доступ"
           }
         }
       }
@@ -703,6 +833,26 @@
         }
       }
     },
+    "Profile badge": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значок профиля"
+          }
+        }
+      }
+    },
+    "Profile badge and name": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Значок и имя профиля"
+          }
+        }
+      }
+    },
     "Profile “%@” is not in Safari: renamed or deleted?": {
       "localizations": {
         "ru": {
@@ -713,12 +863,22 @@
         }
       }
     },
-    "Profiles": {
+    "Profiles and their windows": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Профили"
+            "value": "Профили и их окна"
+          }
+        }
+      }
+    },
+    "Purple": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фиолетовый"
           }
         }
       }
@@ -729,6 +889,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Выход"
+          }
+        }
+      }
+    },
+    "Red": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Красный"
           }
         }
       }
@@ -789,6 +959,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Управление Safari"
+          }
+        }
+      }
+    },
+    "Safari decides (its website settings)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Решает Safari (его настройки сайтов)"
+          }
+        }
+      }
+    },
+    "Safari decides by its website settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профиль выберет Safari по своим настройкам сайтов"
           }
         }
       }
@@ -923,12 +1113,12 @@
         }
       }
     },
-    "Show the active profile in the menu bar": {
+    "Show the switcher (a quick press activates Safari)": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Показывать активный профиль в строке меню"
+            "value": "Показать переключатель (быстрое нажатие активирует Safari)"
           }
         }
       }
@@ -983,6 +1173,16 @@
         }
       }
     },
+    "Switcher: back": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: назад"
+          }
+        }
+      }
+    },
     "Switcher: cancel": {
       "localizations": {
         "ru": {
@@ -993,22 +1193,42 @@
         }
       }
     },
-    "Switcher: next": {
+    "Switcher: next profile": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Переключатель: следующий"
+            "value": "Переключатель: следующий профиль"
           }
         }
       }
     },
-    "Switcher: previous": {
+    "Switcher: previous profile": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Переключатель: предыдущий"
+            "value": "Переключатель: предыдущий профиль"
+          }
+        }
+      }
+    },
+    "Switcher: window above": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: окно выше"
+          }
+        }
+      }
+    },
+    "Switcher: window below": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: окно ниже"
           }
         }
       }
@@ -1033,22 +1253,42 @@
         }
       }
     },
-    "The switch shortcut also selects the next item. Release the modifier to confirm.": {
+    "Teal": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Шорткат переключения тоже выбирает следующий элемент. Отпустите модификатор, чтобы подтвердить."
+            "value": "Бирюзовый"
           }
         }
       }
     },
-    "The switch shortcut goes through the checked profiles in this order.": {
+    "The badge is the profile of Safari's front window; faded while another app is in front.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Шорткат переключения проходит по отмеченным профилям в этом порядке."
+            "value": "Значок показывает профиль переднего окна Safari. Пока впереди другое приложение, он бледнее."
+          }
+        }
+      }
+    },
+    "The switch shortcut also selects the next profile, and with ⇧ the previous one. Release the modifier to confirm.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шорткат переключения тоже выбирает следующий профиль, а с ⇧ предыдущий. Отпустите модификатор, чтобы подтвердить."
+          }
+        }
+      }
+    },
+    "The switch shortcut goes through the checked profiles in this order. The badge and color show the profile in the menu bar and the switcher.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шорткат переключения проходит по отмеченным профилям в этом порядке. Значок и цвет обозначают профиль в строке меню и в переключателе."
           }
         }
       }
@@ -1143,6 +1383,16 @@
         }
       }
     },
+    "Yellow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Жёлтый"
+          }
+        }
+      }
+    },
     "any app": {
       "localizations": {
         "ru": {
@@ -1163,12 +1413,12 @@
         }
       }
     },
-    "example.com includes subdomains, *.example.com only subdomains, github.com/org a path. The app is a bundle id, e.g. com.tinyspeck.slackmacgap; empty means any app. Rules also pick the profile for “Move tab to the other profile”.": {
+    "example.com includes subdomains, *.example.com only subdomains, github.com/org a path. The app is a bundle id, e.g. com.tinyspeck.slackmacgap; empty means any app. Rules also pick the profile for “Move tab to the next profile”.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "example.com — вместе с поддоменами, *.example.com — только поддомены, github.com/org — путь. Приложение — bundle id, например com.tinyspeck.slackmacgap; пусто — любое приложение. Правила также выбирают профиль для «Перенести вкладку в другой профиль»."
+            "value": "example.com включает поддомены, *.example.com — только поддомены, github.com/org задаёт путь. Приложение указывается как bundle id, например com.tinyspeck.slackmacgap; пусто — любое приложение. Правила также выбирают профиль для «Перенести вкладку в следующий профиль»."
           }
         }
       }
@@ -1199,6 +1449,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "«%@» отключён: у него было то же сочетание."
+          }
+        }
+      }
+    },
+    "“Safari decides” passes the link to Safari, which applies Safari Settings → Websites → Open Links in Profile (or uses the most recent profile). Keep plain per-site choices there, and rules here for what Safari can't do: the source app, paths, a profile menu, cleaning links.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Решает Safari» передаёт ссылку в Safari, а он применяет «Настройки → Сайты → Открыть ссылки в профиле» или открывает её в самом недавнем профиле. Простые правила «сайт → профиль» удобно держать там, а здесь — то, чего Safari не умеет: приложение-источник, пути, меню выбора профиля, очистку ссылок."
           }
         }
       }

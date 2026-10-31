@@ -7,7 +7,7 @@ import SwitcherCore
 final class SwitcherHUD {
     final class Model: ObservableObject {
         @Published var state = HUDState(items: [], selection: 0)
-        var badge: (String) -> String = { String($0.prefix(1)) }
+        var look: (String?) -> ProfileLook = { _ in .unknown }
         var onClick: (Int) -> Void = { _ in }
     }
 
@@ -22,7 +22,9 @@ final class SwitcherHUD {
         self.panel = panel
         let size = panel.contentView?.fittingSize ?? CGSize(width: 400, height: 160)
         panel.setContentSize(size)
-        let screen = Self.screen(containing: frame) ?? NSScreen.main
+        // Outside Safari (or without windows), on the screen with the pointer.
+        let screen = Self.screen(containing: frame)
+            ?? NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         if let visible = screen?.visibleFrame {
             panel.setFrameOrigin(NSPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2))
         }
@@ -80,70 +82,117 @@ private struct HUDView: View {
     }
 
     @ViewBuilder private var content: some View {
-        let items = Array(model.state.items.enumerated())
-        if items.first.map({ if case .profile = $0.element.target { true } else { false } }) ?? true {
-            HStack(spacing: 8) {
-                ForEach(items, id: \.offset) { index, item in
-                    ProfileTile(item: item, badge: model.badge(item.title), selected: index == model.state.selection)
-                        .onTapGesture { model.onClick(index) }
-                }
-            }
-        } else {
+        let state = model.state
+        if state.groups.isEmpty {
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(items.prefix(14), id: \.offset) { index, item in
-                    WindowRow(item: item, badge: item.profile.map(model.badge), selected: index == model.state.selection)
+                ForEach(Array(state.items.enumerated().prefix(14)), id: \.offset) { index, item in
+                    WindowRow(item: item, look: model.look(item.profile), showProfile: true,
+                              selected: index == state.selection)
                         .onTapGesture { model.onClick(index) }
                 }
             }
             .frame(width: 440)
+        } else {
+            HStack(alignment: .top, spacing: 10) {
+                ForEach(Array(state.groups.enumerated()), id: \.offset) { groupIndex, group in
+                    ProfileColumn(model: model, group: group, current: groupIndex == 0 && state.groups.count > 1,
+                                  active: state.selectedGroup == groupIndex)
+                }
+            }
         }
     }
 }
 
-private struct ProfileTile: View {
-    let item: HUDItem
-    let badge: String
-    let selected: Bool
+/// A profile and its windows. Long lists show a slice around the selection.
+private struct ProfileColumn: View {
+    @ObservedObject var model: SwitcherHUD.Model
+    let group: HUDGroup
+    /// The front window's profile.
+    let current: Bool
+    /// Holds the selection.
+    let active: Bool
+
+    private static let visibleRows = 8
 
     var body: some View {
-        VStack(spacing: 6) {
-            Text(badge)
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
-                .frame(width: 64, height: 64)
-                .background(Circle().fill(.quaternary))
-            Text(item.title).font(.headline).lineLimit(1)
-            Text(item.count == 0 ? String(localized: "no windows") : String(localized: "\(item.count) windows"))
-                .font(.caption).foregroundStyle(.secondary)
+        let look = model.look(group.profile)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                ProfileBadge(look: look, size: 34)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(group.profile == nil ? String(localized: "Other windows") : look.name)
+                        .font(.headline).lineLimit(1)
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.bottom, 6)
+            ForEach(rows, id: \.self) { index in
+                let item = model.state.items[index]
+                WindowRow(item: item, look: look, showProfile: false, selected: index == model.state.selection)
+                    .onTapGesture { model.onClick(index) }
+            }
+            if hidden > 0 {
+                Text("+\(hidden)").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 10)
+            }
         }
-        .frame(width: 110)
-        .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 12).fill(selected ? Color.accentColor.opacity(0.35) : .clear))
-        .contentShape(Rectangle())
+        .padding(8)
+        .frame(width: 220, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 12).fill(active ? Color.primary.opacity(0.07) : .clear))
     }
+
+    private var subtitle: String {
+        let count = group.windowCount == 0 ? String(localized: "no windows") : String(localized: "\(group.windowCount) windows")
+        return current ? String(localized: "Current · \(count)") : count
+    }
+
+    private var rows: [Int] {
+        let all = Array(group.items)
+        guard all.count > Self.visibleRows else { return all }
+        let selected = all.firstIndex(of: model.state.selection) ?? 0
+        let start = min(max(0, selected - Self.visibleRows / 2), all.count - Self.visibleRows)
+        return Array(all[start..<start + Self.visibleRows])
+    }
+
+    private var hidden: Int { group.items.count - rows.count }
 }
 
 private struct WindowRow: View {
     let item: HUDItem
-    let badge: String?
+    let look: ProfileLook
+    let showProfile: Bool
     let selected: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text(badge ?? "•")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .frame(width: 26, height: 26)
-                .background(Circle().fill(.quaternary))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(item.title.isEmpty ? String(localized: "Start Page") : item.title).lineLimit(1)
-                Text(item.profile ?? String(localized: "Other windows")).font(.caption).foregroundStyle(.secondary)
+        HStack(spacing: 8) {
+            if showProfile {
+                ProfileBadge(look: look, size: 24)
             }
-            Spacer(minLength: 8)
+            if case .profile = item.target {
+                VStack(alignment: .leading, spacing: 1) {
+                    Label(look.isPrivate ? String(localized: "New Private Window") : String(localized: "New Window"),
+                          systemImage: "plus")
+                        .foregroundStyle(.secondary)
+                    if showProfile {
+                        Text(look.name).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.title.isEmpty ? String(localized: "Start Page") : item.title).lineLimit(1)
+                    if showProfile {
+                        Text(item.profile == nil ? String(localized: "Other windows") : look.name)
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            Spacer(minLength: 6)
             if item.count > 1 {
                 Text("\(item.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.vertical, 5)
         .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Color.accentColor.opacity(0.35) : .clear))
         .contentShape(Rectangle())
     }

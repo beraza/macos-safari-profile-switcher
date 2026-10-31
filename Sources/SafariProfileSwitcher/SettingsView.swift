@@ -42,7 +42,7 @@ private struct GeneralSettings: View {
             } header: {
                 Text("Safari profiles")
             } footer: {
-                Text("The switch shortcut goes through the checked profiles in this order.")
+                Text("The switch shortcut goes through the checked profiles in this order. The badge and color show the profile in the menu bar and the switcher.")
                     .foregroundStyle(.secondary)
             }
             Section("Switching") {
@@ -51,7 +51,7 @@ private struct GeneralSettings: View {
                 Toggle("Keep full screen for the new window", isOn: $settings.matchFullScreen)
                     .disabled(!settings.newWindowInPlace)
                 Toggle("Also move existing windows onto the current window", isOn: $settings.alignExistingWindows)
-                Toggle("Copy the tab instead of moving it to the other profile", isOn: $settings.keepSourceTab)
+                Toggle("Copy the tab instead of moving it to the next profile", isOn: $settings.keepSourceTab)
                 Picker("Switch shortcut outside Safari", selection: $settings.outsideSafariAction) {
                     ForEach(OutsideSafariAction.allCases) { Text($0.title).tag($0) }
                 }
@@ -70,16 +70,15 @@ private struct GeneralSettings: View {
             } header: {
                 Text("Switcher (hold the modifier of the switch shortcut)")
             }
-            Section("Menu bar") {
-                Toggle("Show the active profile in the menu bar", isOn: $settings.showProfileIndicator)
-                ForEach(knownProfiles, id: \.self) { profile in
-                    LabeledContent(profile) {
-                        TextField("", text: badgeBinding(profile), prompt: Text(settings.badge(for: profile)))
-                            .labelsHidden()
-                            .frame(width: 80)
-                    }
+            Section {
+                Picker("Menu bar shows", selection: $settings.menuBarStyle) {
+                    ForEach(MenuBarStyle.allCases) { Text($0.title).tag($0) }
                 }
-                .disabled(!settings.showProfileIndicator)
+            } header: {
+                Text("Menu bar")
+            } footer: {
+                Text("The badge is the profile of Safari's front window; faded while another app is in front.")
+                    .foregroundStyle(.secondary)
             }
             Section("General") {
                 Toggle("Launch at login", isOn: Binding(
@@ -102,15 +101,40 @@ private struct GeneralSettings: View {
     /// A checkbox rather than a text field, so a stray keystroke (e.g. ⌥⇥) can't change a name.
     private func profileRow(_ profile: String) -> some View {
         let index = settings.switchProfiles.firstIndex(of: profile)
+        let look = controller.look(for: profile)
         return HStack {
             Toggle(isOn: Binding(get: { index != nil }, set: { settings.setSwitching(profile, $0) })) {
-                Text(profile)
+                HStack(spacing: 6) {
+                    ProfileBadge(look: look, size: 20)
+                    Text(look.name)
+                }
             }
-            if !controller.detectedProfiles.isEmpty && !controller.detectedProfiles.contains(profile) {
+            if profile != ProfileMatcher.privateProfile && !controller.detectedProfiles.isEmpty
+                && !controller.detectedProfiles.contains(profile) {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
                     .help(ProfileWarning.missingProfile(profile).message)
             }
             Spacer()
+            TextField("Badge", text: badgeBinding(profile), prompt: Text(look.isPrivate ? "✋" : look.badge))
+                .labelsHidden()
+                .frame(width: 44)
+                .help("Badge text (up to 4 characters)")
+            Menu {
+                ForEach(ProfileColor.allCases) { color in
+                    Button {
+                        settings.profileColors[profile] = color.rawValue
+                    } label: {
+                        Label { Text(color.title) } icon: {
+                            Image(nsImage: .swatch(color.color))
+                        }
+                    }
+                }
+            } label: {
+                Image(nsImage: .swatch(look.color))
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("Badge color")
             if let index {
                 Text("\(index + 1)").monospacedDigit().foregroundStyle(.secondary)
                 Button { settings.moveSwitching(profile, by: -1) } label: { Image(systemName: "chevron.up") }
@@ -139,11 +163,11 @@ private struct ShortcutSettings: View {
                     .foregroundStyle(.secondary)
             }
             Section {
-                ForEach(ShortcutAction.allCases.filter { !$0.scopes.contains(.safari) }) { row($0) }
+                ForEach(ShortcutAction.allCases.filter { !$0.scopes.contains(.safari) && $0.isConfigurable }) { row($0) }
             } header: {
                 Text("While the switcher is open")
             } footer: {
-                Text("The switch shortcut also selects the next item. Release the modifier to confirm.")
+                Text("The switch shortcut also selects the next profile, and with ⇧ the previous one. Release the modifier to confirm.")
                     .foregroundStyle(.secondary)
             }
             if let note {

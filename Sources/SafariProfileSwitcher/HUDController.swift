@@ -7,11 +7,12 @@ import SwitcherCore
 final class HUDController {
     let hud = SwitcherHUD()
     var knownProfiles: () -> [String] = { [] }
-    /// Released before the HUD appeared.
-    var onSwitchNow: () -> Void = {}
+    /// Released before the HUD appeared; `true` if the press came while another app was in front.
+    var onSwitchNow: (_ outsideSafari: Bool) -> Void = { _ in }
     /// The selection was confirmed; the windows are those listed when the HUD opened.
     var onActivate: (HUDItem, [SafariWindow]) -> Void = { _, _ in }
-    /// The HUD appeared or went away (the HUD's shortcuts are registered only while it is shown).
+    /// A session started or ended, or the HUD appeared: the HUD's shortcuts are registered from the first
+    /// press on (so ⌥⇧⇥ goes back even before the HUD shows), and the Safari ones only without a session.
     var onVisibilityChange: () -> Void = {}
     var onError: (String) -> Void = { _ in }
 
@@ -20,6 +21,8 @@ final class HUDController {
     /// Polls the modifiers from the first press of the switch shortcut until they are released.
     private var timer: Timer?
     private var state: HUDState?
+    /// The session started while another app was in front.
+    private var outsideSafari = false
     /// Safari windows when the HUD opened, front-most first.
     private var windows: [SafariWindow] = []
 
@@ -36,19 +39,31 @@ final class HUDController {
     /// Whether presses of the switch shortcut go through the HUD (it needs a modifier to hold).
     var isEnabled: Bool { settings.hudMode != .off && !holdFlags.isEmpty }
 
-    func pressSwitch() {
-        if !session.isActive { session.delay = settings.hudDelay }
+    /// A press of the switch shortcut, in Safari or (with "show the switcher") in another app.
+    func pressSwitch(outsideSafari: Bool = false) {
+        let starting = !session.isActive
+        if starting {
+            session.delay = settings.hudDelay
+            self.outsideSafari = outsideSafari
+        }
         apply(session.press(at: Self.now))
+        if starting { onVisibilityChange() }
     }
 
-    func move(by offset: Int) {
+    /// The switch shortcut with Shift.
+    func pressBack() {
+        apply(session.pressBack(at: Self.now))
+    }
+
+    func step(_ direction: HUDState.Direction) {
         guard hud.isVisible, var state else { return }
-        state.move(by: offset)
+        state.step(direction)
         self.state = state
         hud.update(state)
     }
 
     func cancel() {
+        guard isActive else { return }
         close(confirm: false)
     }
 
@@ -59,10 +74,11 @@ final class HUDController {
         switch effect {
         case .none: break
         case .show(let extraPresses): show(extraPresses: extraPresses)
-        case .moveSelection(let offset): move(by: offset)
+        case .moveSelection(let offset): step(offset > 0 ? .next : .previous)
         case .switchNow:
             stopTimer()
-            onSwitchNow()
+            onVisibilityChange()
+            onSwitchNow(outsideSafari)
         case .confirm: close(confirm: true)
         }
         if session.isActive && timer == nil {
@@ -84,10 +100,10 @@ final class HUDController {
             var state = settings.hudMode == .windows
                 ? HUDState.windows(windows: windows, profiles: profiles)
                 : HUDState.profiles(windows: windows, profiles: profiles)
-            state.move(by: extraPresses)
+            state.step(by: extraPresses)
             self.state = state
             self.windows = windows
-            hud.model.badge = { [settings] in settings.badge(for: $0) }
+            hud.model.look = { [settings] profile in profile.map { settings.look(for: $0, among: profiles) } ?? .unknown }
             hud.model.onClick = { [weak self] index in
                 self?.state?.select(index)
                 self?.close(confirm: true)
@@ -107,11 +123,10 @@ final class HUDController {
         stopTimer()
         let selected = state?.selected
         let windows = self.windows
-        let wasVisible = hud.isVisible
         hud.hide()
         state = nil
         self.windows = []
-        if wasVisible { onVisibilityChange() }
+        onVisibilityChange()
         guard confirm, let selected else { return }
         onActivate(selected, windows)
     }

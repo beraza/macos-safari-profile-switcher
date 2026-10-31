@@ -25,7 +25,9 @@ final class AppController: ObservableObject {
     private let hudController: HUDController
     var hud: SwitcherHUD { hudController.hud }
     private let observer = SafariObserver()
-    private var safariActive = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == SafariController.bundleID
+    /// Safari is the front app.
+    @Published private(set) var safariActive =
+        NSWorkspace.shared.frontmostApplication?.bundleIdentifier == SafariController.bundleID
     private var hotKeyPaused = false
     /// Windows already shown in the current round of cycling through a profile.
     private var cycle: CycleState?
@@ -41,7 +43,10 @@ final class AppController: ObservableObject {
         settings = customSettings ?? AppSettings()
         hudController = HUDController(settings: settings)
         hudController.knownProfiles = { [weak self] in self?.knownProfiles ?? [] }
-        hudController.onSwitchNow = { [weak self] in self?.perform { try await $0.switchProfile() } }
+        hudController.onSwitchNow = { [weak self] outsideSafari in
+            // Like a quick ⌘⇥: from another app, just go to Safari; in Safari, switch the profile.
+            if outsideSafari { self?.openSafari() } else { self?.perform { try await $0.switchProfile() } }
+        }
         hudController.onActivate = { [weak self] item, windows in
             self?.perform { try await $0.activate(item, windows: windows) }
         }
@@ -77,6 +82,7 @@ final class AppController: ObservableObject {
             if note.name == NSWorkspace.didTerminateApplicationNotification {
                 // Window ids start over when Safari launches again.
                 self?.settings.detachedFrom = [:]
+                self?.currentProfile = nil
             }
             self?.observer.start()
             self?.updateCurrentProfile()
@@ -95,12 +101,16 @@ final class AppController: ObservableObject {
 
     var profilesSummary: String {
         settings.switchProfiles.count < 2 ? String(localized: "Choose profiles in Settings")
-            : settings.switchProfiles.joined(separator: " → ")
+            : settings.switchProfiles.map(ProfileMatcher.displayName).joined(separator: " → ")
     }
 
-    /// Configured and detected profile names, without duplicates.
+    /// Configured and detected profile names, without duplicates, and Private Browsing.
     var knownProfiles: [String] {
-        ProfileMatcher.cleaned(settings.switchProfiles + detectedProfiles)
+        ProfileMatcher.cleaned(settings.switchProfiles + detectedProfiles + [ProfileMatcher.privateProfile])
+    }
+
+    func look(for profile: String) -> ProfileLook {
+        settings.look(for: profile, among: knownProfiles)
     }
 
     // MARK: - Hotkeys
@@ -123,14 +133,20 @@ final class AppController: ObservableObject {
         }
     }
 
-    /// Registers the shortcuts of the current scope: Safari's while it's in front; outside Safari only
-    /// the switch shortcut, and not even that with "pass through", so other apps get the keys.
+    /// Registers the shortcuts of the current scope: the switcher's from the first press of the switch
+    /// shortcut until it's done; Safari's while it's in front; outside Safari only the switch shortcut, and
+    /// not even that with "pass through", so other apps get the keys.
     private func updateHotKeyRegistration() {
         var bindings: [ShortcutAction: Shortcut] = [:]
         if hotKeyPaused {
             bindings = [:]
-        } else if hudController.isVisible {
+        } else if hudController.isActive {
             bindings = settings.shortcuts.filter { $0.key.scopes.contains(.hud) }
+            // ⌥⇧⇥ goes back, unless the user gave those keys to a switcher action.
+            if let back = ShortcutAction.switchBack(for: settings.shortcuts[.switchProfile]),
+               !bindings.values.contains(back) {
+                bindings[.switchBack] = back
+            }
         } else if safariActive {
             bindings = settings.shortcuts.filter { $0.key.scopes.contains(.safari) }
         } else if settings.outsideSafariAction != .passThrough {
@@ -139,7 +155,7 @@ final class AppController: ObservableObject {
         hotKey.apply(bindings)
         // Show only failures of the shortcuts as they are set now.
         hotKeyFailures = hotKey.failures.reduce(into: [:]) { result, failure in
-            guard settings.shortcuts[failure.key] == failure.value.shortcut else { return }
+            guard failure.key.isConfigurable, settings.shortcuts[failure.key] == failure.value.shortcut else { return }
             result[failure.key] = failure.value.status == OSStatus(eventHotKeyExistsErr)
                 ? String(localized: "Taken by another app or the system")
                 : String(localized: "Can't register (error \(String(failure.value.status)))")
@@ -157,9 +173,15 @@ final class AppController: ObservableObject {
         case .attachTab:
             perform { try await $0.attachTab() }
         case .hudNext:
-            hudController.move(by: 1)
+            hudController.step(.next)
         case .hudPrevious:
-            hudController.move(by: -1)
+            hudController.step(.previous)
+        case .hudUp:
+            hudController.step(.up)
+        case .hudDown:
+            hudController.step(.down)
+        case .switchBack:
+            hudController.pressBack()
         case .hudCancel:
             hudController.cancel()
         }
@@ -206,10 +228,12 @@ final class AppController: ObservableObject {
             return
         }
         switch settings.outsideSafariAction {
+        case .showSwitcher where hudController.isActive || hudController.isEnabled:
+            hudController.pressSwitch(outsideSafari: true)
         case .switchProfile where SafariController.runningApp != nil:
             SafariController.runningApp?.activate()
             perform { try await $0.switchProfile() }
-        case .activateSafari, .switchProfile:
+        case .activateSafari, .switchProfile, .showSwitcher:
             openSafari()
         case .passThrough:
             // Not registered outside Safari; a press can still arrive while the front app changes.
@@ -246,7 +270,7 @@ final class AppController: ObservableObject {
         switch plan.target {
         case .focus(let windowID):
             if settings.alignExistingWindows, let front, let target = windows.first(where: { $0.id == windowID }),
-               profile(ofTitle: front.title) != profile(ofTitle: target.title) {
+               profile(of: front) != profile(of: target) {
                 try align(windowID, with: front.id)
             }
             try SafariController.focus(windowID: windowID)
@@ -287,8 +311,8 @@ final class AppController: ObservableObject {
         try SafariController.setBounds(frame, windowID: windowID)
     }
 
-    func profile(ofTitle title: String) -> String? {
-        ProfileMatcher.profile(ofTitle: title, among: knownProfiles)
+    func profile(of window: SafariWindow) -> String? {
+        ProfileMatcher.profile(of: window, among: knownProfiles)
     }
 
     // MARK: - Tabs
@@ -340,7 +364,8 @@ final class AppController: ObservableObject {
             newID = try await SafariController.waitForNewWindow(excluding: known)
         } else {
             // No "Move Tab to New Window" item: open a window of the profile and move the tab there.
-            guard let profile = profile(ofTitle: tab.windowTitle) else {
+            guard let profile = tab.isPrivate ? ProfileMatcher.privateProfile
+                    : ProfileMatcher.profile(ofTitle: tab.windowTitle, among: knownProfiles) else {
                 throw AppError(String(localized: "Can't tell the profile of this window"))
             }
             newID = try await openNewWindow(profile: profile, replacing: nil)
@@ -383,6 +408,7 @@ final class AppController: ObservableObject {
 
     func openWindow(profile: String) {
         perform {
+            try await $0.launchSafariIfNeeded()
             SafariController.runningApp?.activate()
             _ = try await $0.openNewWindow(profile: profile, replacing: nil)
         }
@@ -409,24 +435,36 @@ final class AppController: ObservableObject {
 
     /// Shows the HUD's choice: a window, or a profile's front-most window (a new one if it has none).
     func activate(_ item: HUDItem, windows: [SafariWindow]) async throws {
-        let front = windows.first
+        var windows = windows
         cycle = nil
+        if SafariController.runningApp == nil {
+            // From another app with Safari quit: launch it and work with the windows it opens by itself.
+            try await launchSafariIfNeeded()
+            windows = try SafariController.windows()
+        }
+        let front = windows.first
+        var target: SafariWindow?
         switch item.target {
         case .window(let id):
-            guard id != front?.id else { return }
-            try SafariController.focus(windowID: id)
-        case .profile(let target):
-            guard target != front.flatMap({ profile(ofTitle: $0.title) }) else { return }
-            if let window = windows.first(where: { profile(ofTitle: $0.title) == target }) {
-                if settings.alignExistingWindows, let front { try align(window.id, with: front.id) }
-                try SafariController.focus(windowID: window.id)
-            } else {
-                _ = try await openNewWindow(profile: target, replacing: front?.id)
+            target = windows.first { $0.id == id }
+        case .profile(let profile):
+            target = front.flatMap { self.profile(of: $0) == profile ? $0 : nil }
+                ?? windows.first { self.profile(of: $0) == profile }
+            if target == nil {
+                _ = try await openNewWindow(profile: profile, replacing: front?.id)
             }
         }
-        if settings.closeEmptyWindow, let front, front.isEmptyStartPage, profile(ofTitle: front.title) != nil {
+        if let target, target.id != front?.id {
+            if settings.alignExistingWindows, let front, profile(of: front) != profile(of: target) {
+                try align(target.id, with: front.id)
+            }
+            try SafariController.focus(windowID: target.id)
+        }
+        if target?.id != front?.id, settings.closeEmptyWindow, let front, front.isEmptyStartPage,
+           profile(of: front) != nil {
             try SafariController.close(windowID: front.id)
         }
+        SafariController.runningApp?.activate()
     }
 
     func fail(_ message: String) {
@@ -440,7 +478,8 @@ final class AppController: ObservableObject {
     private func updateCurrentProfile() {
         guard SafariController.runningApp != nil else { return }
         let title = observer.focusedWindowTitle() ?? ""
-        let profile = ProfileMatcher.profile(ofTitle: title, among: knownProfiles)
+        let profile = ProfileMatcher.isPrivate(title: title, realProfiles: detectedProfiles)
+            ? ProfileMatcher.privateProfile : ProfileMatcher.profile(ofTitle: title, among: knownProfiles)
         if profile != currentProfile, !title.isEmpty {
             currentProfile = profile
         }
@@ -453,17 +492,12 @@ final class AppController: ObservableObject {
         if settings.switchProfiles.count < 2 {
             settings.switchProfiles = ProfileMatcher.cleaned(settings.switchProfiles + detectedProfiles)
         }
-        updateProfileWarnings(windows: try? SafariController.windows())
+        updateProfileWarnings()
     }
 
-    /// Checks the settings against Safari's profiles and window titles (`nil` windows: keep the title check).
-    func updateProfileWarnings(windows: [SafariWindow]?) {
-        let titles = windows?.map(\.title)
-        var warnings = ProfileHealth.warnings(
-            used: settings.usedProfiles, detected: detectedProfiles, windowTitles: titles ?? [])
-        if titles == nil, profileWarnings.contains(.unrecognizedTitles) {
-            warnings.append(.unrecognizedTitles)
-        }
+    /// Checks the settings against Safari's profiles.
+    func updateProfileWarnings() {
+        let warnings = ProfileHealth.warnings(used: settings.usedProfiles, detected: detectedProfiles)
         if warnings != profileWarnings { profileWarnings = warnings }
     }
 
@@ -536,8 +570,6 @@ extension ProfileWarning {
         switch self {
         case .missingProfile(let profile):
             String(localized: "Profile “\(profile)” is not in Safari: renamed or deleted?")
-        case .unrecognizedTitles:
-            String(localized: "Can't tell profiles from Safari window titles")
         }
     }
 }

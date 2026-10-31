@@ -18,10 +18,11 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
         let settings = controller.settings
-        Publishers.Merge3(
-            controller.$currentProfile.map { _ in () },
-            settings.$showProfileIndicator.map { _ in () },
-            settings.$profileBadges.map { _ in () }
+        Publishers.Merge4(
+            Publishers.Merge(controller.$currentProfile.map { _ in () }, controller.$safariActive.map { _ in () }),
+            settings.$menuBarStyle.map { _ in () },
+            settings.$profileBadges.map { _ in () },
+            settings.$profileColors.map { _ in () }
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] in self?.updateButton() }
@@ -31,15 +32,18 @@ final class StatusMenu: NSObject, NSMenuDelegate {
 
     // MARK: - Button
 
+    /// The profile of Safari's front window as a colored badge, like Safari's own profile pill: full color
+    /// while Safari is in front, faded while another app is (the last profile used), the app icon while
+    /// Safari isn't running or the profile is unknown.
     private func updateButton() {
         guard let button = statusItem.button else { return }
-        let settings = controller.settings
-        if settings.showProfileIndicator, let profile = controller.currentProfile {
-            button.image = nil
-            button.attributedTitle = NSAttributedString(
-                string: settings.badge(for: profile),
-                attributes: [.font: NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .semibold)])
-            button.toolTip = profile
+        let style = controller.settings.menuBarStyle
+        if style != .icon, let profile = controller.currentProfile {
+            let look = controller.look(for: profile)
+            button.title = ""
+            button.image = .menuBarBadge(look, showName: style == .badgeAndName, dimmed: !controller.safariActive)
+            button.toolTip = controller.safariActive ? look.name
+                : String(localized: "\(look.name) (the last Safari window)")
         } else {
             button.title = ""
             button.image = NSImage(systemSymbolName: "person.2.circle", accessibilityDescription: "Safari Profile Switcher")
@@ -53,7 +57,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let settings = controller.settings
         let windows = SafariController.runningApp == nil ? nil : Result { try SafariController.windows() }
-        controller.updateProfileWarnings(windows: try? windows?.get())
+        controller.updateProfileWarnings()
         menu.addItem(disabled(controller.profilesSummary))
         if let shortcut = settings.shortcuts[.switchProfile] {
             menu.addItem(disabled(String(localized: "Shortcut: \(shortcut.displayString)")))
@@ -68,7 +72,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         addWindows(windows, to: menu)
         if let transfer = controller.lastTransfer {
             menu.addItem(.separator())
-            menu.addItem(item(String(localized: "Always open \(transfer.host) in “\(transfer.profile)”")) {
+            let name = ProfileMatcher.displayName(transfer.profile)
+            menu.addItem(item(String(localized: "Always open \(transfer.host) in “\(name)”")) {
                 $0.rememberLastTransfer()
             })
         }
@@ -82,13 +87,11 @@ final class StatusMenu: NSObject, NSMenuDelegate {
 
     /// Windows grouped by profile (known profiles first, in order), each with a "New Window" item.
     private func addWindows(_ result: Result<[SafariWindow], Error>?, to menu: NSMenu) {
-        guard let result else {
-            menu.addItem(disabled(String(localized: "Safari is not running")))
-            return
-        }
         let windows: [SafariWindow]
         do {
-            windows = try result.get()
+            // Without Safari, still list the profiles: "New Window" launches it.
+            if result == nil { menu.addItem(disabled(String(localized: "Safari is not running"))) }
+            windows = try result?.get() ?? []
         } catch {
             menu.addItem(disabled("⚠️ \(error.localizedDescription)"))
             return
@@ -96,9 +99,10 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         let profiles = controller.knownProfiles
         let groups = WindowGroups.make(windows: windows, profiles: profiles)
         for group in groups {
-            menu.addItem(.sectionHeader(title: group.profile ?? String(localized: "Other windows")))
+            menu.addItem(.sectionHeader(title: group.profile.map(ProfileMatcher.displayName) ?? String(localized: "Other windows")))
             for window in group.windows {
-                let title = ProfileMatcher.pageTitle(ofTitle: window.title, profile: group.profile)
+                let title = window.isPrivate ? window.title
+                    : ProfileMatcher.pageTitle(ofTitle: window.title, profile: group.profile)
                 let menuItem = item(Self.truncate(title.isEmpty ? String(localized: "Start Page") : title)) {
                     $0.showWindow(id: window.id)
                 }
@@ -108,7 +112,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
                 menu.addItem(menuItem)
             }
             if let profile = group.profile {
-                let newWindow = item(String(localized: "New Window")) { $0.openWindow(profile: profile) }
+                let newWindow = item(profile == ProfileMatcher.privateProfile ? String(localized: "New Private Window")
+                                     : String(localized: "New Window")) { $0.openWindow(profile: profile) }
                 newWindow.image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)
                 menu.addItem(newWindow)
             }

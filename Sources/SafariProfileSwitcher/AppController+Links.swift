@@ -3,7 +3,8 @@ import SwitcherCore
 
 /// Links from other apps while this app is the default browser.
 extension AppController {
-    /// Profile for a link opened from another app: rule, default profile, or `nil` to ask.
+    /// Profile for a link opened from another app: rule, default profile (or `AppSettings.safariDecides`),
+    /// or `nil` to ask.
     func linkProfile(for url: URL, sourceApp: String?) -> String? {
         RuleMatcher.profile(for: url, sourceApp: sourceApp, rules: settings.linkRules)
             ?? (settings.defaultLinkProfile.isEmpty ? nil : settings.defaultLinkProfile)
@@ -15,7 +16,12 @@ extension AppController {
             url, unwrapRedirects: settings.unwrapRedirects, stripTracking: settings.stripTrackingParams)
         log.info("link \(url.absoluteString, privacy: .private) from \(sourceApp ?? "?", privacy: .public)")
         if !forceChoice, let profile = linkProfile(for: url, sourceApp: sourceApp) {
-            route(url, to: profile)
+            if profile == AppSettings.safariDecides {
+                // Safari applies its own Settings → Websites → "Open links in profile" to links from other apps.
+                openInSafari(url)
+            } else {
+                route(url, to: profile)
+            }
         } else {
             chooseProfile(for: url)
         }
@@ -26,7 +32,7 @@ extension AppController {
         enqueue({ controller in
             try await controller.launchSafariIfNeeded()
             let windows = try SafariController.windows()
-            if let window = windows.first(where: { controller.profile(ofTitle: $0.title) == profile }) {
+            if let window = windows.first(where: { controller.profile(of: $0) == profile }) {
                 try SafariController.openTab(url: url.absoluteString, windowID: window.id)
                 try SafariController.focus(windowID: window.id)
             } else {
@@ -36,7 +42,8 @@ extension AppController {
             SafariController.runningApp?.activate()
         }, onError: { [weak self] error in
             // Never lose a link: let Safari open it the usual way.
-            self?.fail(String(localized: "Couldn't open the link in “\(profile)”: \(error.localizedDescription)"))
+            let name = ProfileMatcher.displayName(profile)
+            self?.fail(String(localized: "Couldn't open the link in “\(name)”: \(error.localizedDescription)"))
             self?.openInSafari(url)
         })
     }
@@ -57,9 +64,10 @@ extension AppController {
         menu.addItem(.separator())
         let host = url.host()
         for profile in knownProfiles {
-            menu.addItem(ClosureMenuItem(title: profile) { [weak self] in self?.route(url, to: profile) })
+            let name = ProfileMatcher.displayName(profile)
+            menu.addItem(ClosureMenuItem(title: name) { [weak self] in self?.route(url, to: profile) })
             if let host {
-                let remember = ClosureMenuItem(title: String(localized: "\(profile) — always for \(host)")) { [weak self] in
+                let remember = ClosureMenuItem(title: String(localized: "\(name) — always for \(host)")) { [weak self] in
                     self?.settings.remember(host: host, profile: profile)
                     self?.route(url, to: profile)
                 }
@@ -69,7 +77,7 @@ extension AppController {
             }
         }
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem(title: String(localized: "Open in Safari as usual")) { [weak self] in
+        menu.addItem(ClosureMenuItem(title: String(localized: "Open in Safari (its website settings decide)")) { [weak self] in
             self?.openInSafari(url)
         })
         NSApp.activate()
@@ -81,7 +89,7 @@ extension AppController {
     }
 
     /// Launches Safari in the background and waits until it answers AppleScript.
-    private func launchSafariIfNeeded() async throws {
+    func launchSafariIfNeeded() async throws {
         guard SafariController.runningApp == nil else { return }
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: SafariController.bundleID) else {
             throw AppError(String(localized: "Safari not found"))

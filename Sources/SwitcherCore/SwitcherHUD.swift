@@ -9,9 +9,10 @@ public struct HUDItem: Equatable, Sendable {
     }
 
     public let target: Target
+    /// The page title for a window (without the profile prefix), empty for a profile without windows.
     public let title: String
     public let profile: String?
-    /// Profiles: open windows of the profile. Windows: tabs in the window.
+    /// Tabs in the window (0 for a profile without windows).
     public let count: Int
 
     public init(target: Target, title: String, profile: String?, count: Int) {
@@ -22,52 +23,131 @@ public struct HUDItem: Equatable, Sendable {
     }
 }
 
+/// The items of one profile in the HUD's profile layout (a column: the profile, then its windows).
+public struct HUDGroup: Equatable, Sendable {
+    /// `nil` for windows of no known profile.
+    public let profile: String?
+    public let items: Range<Int>
+    public let windowCount: Int
+
+    public init(profile: String?, items: Range<Int>, windowCount: Int) {
+        self.profile = profile
+        self.items = items
+        self.windowCount = windowCount
+    }
+}
+
 /// Items and the selection, like ⌘⇥: the current item first, the next one selected.
 public struct HUDState: Equatable, Sendable {
+    public enum Direction: Sendable {
+        /// Next / previous profile (in the window list: next / previous window).
+        case next, previous
+        /// Window above / below within the profile (in the window list: the same as previous / next).
+        case up, down
+    }
+
     public let items: [HUDItem]
+    /// Columns of the profile layout; empty for the plain window list.
+    public let groups: [HUDGroup]
     public private(set) var selection: Int
 
-    public init(items: [HUDItem], selection: Int) {
+    public init(items: [HUDItem], groups: [HUDGroup] = [], selection: Int) {
         self.items = items
+        self.groups = groups
         self.selection = items.isEmpty ? 0 : min(max(selection, 0), items.count - 1)
     }
 
     public var selected: HUDItem? { items.indices.contains(selection) ? items[selection] : nil }
 
+    /// Index of the group holding the selection.
+    public var selectedGroup: Int? { groups.firstIndex { $0.items.contains(selection) } }
+
     /// Moves the selection, wrapping around.
     public mutating func move(by offset: Int) {
         guard !items.isEmpty else { return }
-        selection = ((selection + offset) % items.count + items.count) % items.count
+        selection = Self.wrap(selection + offset, count: items.count)
+    }
+
+    public mutating func step(_ direction: Direction) {
+        guard let group = selectedGroup else {
+            move(by: direction == .next || direction == .down ? 1 : -1)
+            return
+        }
+        switch direction {
+        case .next, .previous:
+            // Like ⌘⇥ between apps: to the front-most window of the next profile.
+            let target = Self.wrap(group + (direction == .next ? 1 : -1), count: groups.count)
+            selection = groups[target].items.lowerBound
+        case .up, .down:
+            let range = groups[group].items
+            let offset = Self.wrap(selection - range.lowerBound + (direction == .down ? 1 : -1), count: range.count)
+            selection = range.lowerBound + offset
+        }
+    }
+
+    /// Steps `count` times forward (positive) or back (negative).
+    public mutating func step(by count: Int) {
+        for _ in 0..<abs(count) { step(count > 0 ? .next : .previous) }
     }
 
     public mutating func select(_ index: Int) {
         if items.indices.contains(index) { selection = index }
     }
 
-    /// One tile per profile: the current one (front window's) first, then the others in `profiles` order.
-    public static func profiles(windows: [SafariWindow], profiles: [String]) -> HUDState {
-        let profiles = profiles.filter { !$0.isEmpty }
-        let current = windows.first.flatMap { ProfileMatcher.profile(ofTitle: $0.title, among: profiles) }
-        let ordered = (current.map { [$0] } ?? []) + profiles.filter { $0 != current }
-        let items = ordered.map { profile in
-            HUDItem(
-                target: .profile(profile), title: profile, profile: profile,
-                count: windows.filter { ProfileMatcher.profile(ofTitle: $0.title, among: profiles) == profile }.count)
-        }
-        // Without a current profile, the first tile is already "another" profile.
-        return HUDState(items: items, selection: current == nil ? 0 : 1)
+    private static func wrap(_ index: Int, count: Int) -> Int {
+        count == 0 ? 0 : (index % count + count) % count
     }
 
-    /// One row per window, front to back; the second (previous) window selected.
+    /// A column per profile with its windows, front to back (a profile without windows gets one item that
+    /// opens a new window). The current profile (the front window's) comes first, then the others in
+    /// `profiles` order, then windows of no profile; the next profile's front window is selected.
+    public static func profiles(windows: [SafariWindow], profiles: [String]) -> HUDState {
+        let profiles = ProfileMatcher.cleaned(profiles)
+        func profile(of window: SafariWindow) -> String? { ProfileMatcher.profile(of: window, among: profiles) }
+        let current = windows.first.flatMap(profile(of:))
+        var ordered: [String?] = (current.map { [$0] } ?? []) + profiles.filter { $0 != current }
+        if windows.contains(where: { profile(of: $0) == nil }) { ordered.append(nil) }
+
+        var items: [HUDItem] = []
+        var groups: [HUDGroup] = []
+        for group in ordered {
+            let start = items.count
+            let own = windows.filter { profile(of: $0) == group }
+            if own.isEmpty, let group {
+                items.append(HUDItem(target: .profile(group), title: "", profile: group, count: 0))
+            }
+            items += own.map { window in
+                HUDItem(target: .window(id: window.id), title: pageTitle(window, profile: group),
+                        profile: group, count: window.tabCount)
+            }
+            groups.append(HUDGroup(profile: group, items: start..<items.count, windowCount: own.count))
+        }
+        // Without a current profile, the first column is already "another" profile.
+        let selected = groups.count > 1 && current != nil ? groups[1] : groups.first
+        return HUDState(items: items, groups: groups, selection: selected?.items.lowerBound ?? 0)
+    }
+
+    /// One row per window, front to back, then a "new window" row for each profile without windows;
+    /// the second (previous) window selected, or the first new window row if there is only one window.
+    /// (Without windows, the first row.)
     public static func windows(windows: [SafariWindow], profiles: [String]) -> HUDState {
+        let profiles = ProfileMatcher.cleaned(profiles)
         let items = windows.map { window in
-            let profile = ProfileMatcher.profile(ofTitle: window.title, among: profiles)
+            let profile = ProfileMatcher.profile(of: window, among: profiles)
             return HUDItem(
-                target: .window(id: window.id),
-                title: ProfileMatcher.pageTitle(ofTitle: window.title, profile: profile),
+                target: .window(id: window.id), title: pageTitle(window, profile: profile),
                 profile: profile, count: window.tabCount)
         }
-        return HUDState(items: items, selection: 1)
+        let open = Set(items.compactMap(\.profile))
+        let new = profiles.filter { !open.contains($0) }.map { profile in
+            HUDItem(target: .profile(profile), title: "", profile: profile, count: 0)
+        }
+        // Without windows there's no current one to skip.
+        return HUDState(items: items + new, selection: windows.isEmpty ? 0 : 1)
+    }
+
+    private static func pageTitle(_ window: SafariWindow, profile: String?) -> String {
+        window.isPrivate ? window.title : ProfileMatcher.pageTitle(ofTitle: window.title, profile: profile)
     }
 }
 
@@ -84,7 +164,7 @@ public struct HUDKeySession: Equatable, Sendable {
 
     public enum Effect: Equatable, Sendable {
         case none
-        /// Show the HUD with the selection moved by this many extra presses.
+        /// Show the HUD with the selection moved by this many extra presses (negative: back).
         case show(extraPresses: Int)
         case moveSelection(Int)
         /// Released before the HUD appeared: switch as without a HUD.
@@ -119,6 +199,20 @@ public struct HUDKeySession: Equatable, Sendable {
             return .show(extraPresses: extra + 1)
         case .shown:
             return .moveSelection(1)
+        }
+    }
+
+    /// A press of the switch shortcut with Shift (going back, like ⌘⇧⇥); it only counts once a press of
+    /// the switch shortcut has started the session.
+    public mutating func pressBack(at now: Double) -> Effect {
+        switch phase {
+        case .idle:
+            return .none
+        case .waiting(_, let extra):
+            phase = .shown
+            return .show(extraPresses: extra - 1)
+        case .shown:
+            return .moveSelection(-1)
         }
     }
 

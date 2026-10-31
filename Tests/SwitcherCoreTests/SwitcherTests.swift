@@ -17,6 +17,27 @@ final class SwitcherTests: XCTestCase {
         XCTAssertNil(ProfileMatcher.profile(ofTitle: "Личный кабинет — Банк", among: profiles))
     }
 
+    func testPrivateWindows() {
+        XCTAssertTrue(ProfileMatcher.isPrivate(title: "123 - Поиск в Google", realProfiles: [personal, work]))
+        XCTAssertFalse(ProfileMatcher.isPrivate(title: "Работа — Jira", realProfiles: [personal, work]))
+        XCTAssertFalse(ProfileMatcher.isPrivate(title: "Jira", realProfiles: []), "without profiles nothing is known")
+        let privateWindow = SafariWindow(id: 1, title: "Поиск", tabCount: 1, firstTabURL: "", isPrivate: true)
+        XCTAssertEqual(ProfileMatcher.profile(of: privateWindow, among: [personal, ProfileMatcher.privateProfile]),
+                       ProfileMatcher.privateProfile)
+        XCTAssertNil(ProfileMatcher.profile(of: privateWindow, among: [personal, work]))
+    }
+
+    func testSwitchesIntoPrivateBrowsing() {
+        let profiles = [personal, ProfileMatcher.privateProfile]
+        let plan = Switcher.decide(windows: [window(1, "Личное — Mail")], profiles: profiles)
+        XCTAssertEqual(plan?.target, .openNew(profile: ProfileMatcher.privateProfile))
+        let back = Switcher.decide(
+            windows: [SafariWindow(id: 2, title: "Поиск", tabCount: 2, firstTabURL: "https://a.b", isPrivate: true),
+                      window(1, "Личное — Mail")],
+            profiles: profiles)
+        XCTAssertEqual(back?.target, .focus(windowID: 1))
+    }
+
     func testEmptyStartPage() {
         XCTAssertTrue(window(1, "x", tabs: 1, url: "favorites://").isEmptyStartPage)
         XCTAssertTrue(window(1, "x", tabs: 1, url: "").isEmptyStartPage)

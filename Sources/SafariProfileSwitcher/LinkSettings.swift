@@ -37,13 +37,14 @@ struct LinkSettings: View {
             } header: {
                 Text("Rules (the first match wins)")
             } footer: {
-                Text("example.com includes subdomains, *.example.com only subdomains, github.com/org a path. The app is a bundle id, e.g. com.tinyspeck.slackmacgap; empty means any app. Rules also pick the profile for “Move tab to the other profile”.")
+                Text("example.com includes subdomains, *.example.com only subdomains, github.com/org a path. The app is a bundle id, e.g. com.tinyspeck.slackmacgap; empty means any app. Rules also pick the profile for “Move tab to the next profile”.")
                     .foregroundStyle(.secondary)
             }
-            Section("Other links") {
+            Section {
                 Picker("Open in", selection: $settings.defaultLinkProfile) {
+                    Text("Safari decides (its website settings)").tag(AppSettings.safariDecides)
                     Text("Ask").tag("")
-                    ForEach(controller.knownProfiles, id: \.self) { Text($0).tag($0) }
+                    ForEach(controller.knownProfiles, id: \.self) { Text(ProfileMatcher.displayName($0)).tag($0) }
                 }
                 Toggle("Remove tracking parameters (utm_*, fbclid, …)", isOn: $settings.stripTrackingParams)
                 VStack(alignment: .leading, spacing: 2) {
@@ -51,6 +52,11 @@ struct LinkSettings: View {
                     Text("Safe Links are checked by Microsoft when clicked; unwrapped links skip that check.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+            } header: {
+                Text("Other links")
+            } footer: {
+                Text("“Safari decides” passes the link to Safari, which applies Safari Settings → Websites → Open Links in Profile (or uses the most recent profile). Keep plain per-site choices there, and rules here for what Safari can't do: the source app, paths, a profile menu, cleaning links.")
+                    .foregroundStyle(.secondary)
             }
             Section("Try a link") {
                 TextField("Link", text: $testLink, prompt: Text(verbatim: "https://github.com/org/repo"))
@@ -69,7 +75,11 @@ struct LinkSettings: View {
             url, unwrapRedirects: settings.unwrapRedirects, stripTracking: settings.stripTrackingParams)
         let app = testApp.trimmingCharacters(in: .whitespaces)
         let profile = controller.linkProfile(for: cleaned, sourceApp: app.isEmpty ? nil : app)
-        let target = profile.map { String(localized: "Opens in “\($0)”") } ?? String(localized: "Asks for a profile")
+        let target = switch profile {
+        case nil: String(localized: "Asks for a profile")
+        case AppSettings.safariDecides?: String(localized: "Safari decides by its website settings")
+        case let profile?: String(localized: "Opens in “\(ProfileMatcher.displayName(profile))”")
+        }
         return cleaned == url ? target : "\(target): \(cleaned.absoluteString)"
     }
 
@@ -111,7 +121,7 @@ private struct RuleRow: View {
             .help("Pick a running app")
             Picker("Profile", selection: $rule.profile) {
                 if !profiles.contains(rule.profile) { Text(rule.profile).tag(rule.profile) }
-                ForEach(profiles, id: \.self) { Text($0).tag($0) }
+                ForEach(profiles, id: \.self) { Text(ProfileMatcher.displayName($0)).tag($0) }
             }
             .labelsHidden()
             .frame(width: 110)

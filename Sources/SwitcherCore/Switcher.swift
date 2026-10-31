@@ -6,12 +6,15 @@ public struct SafariWindow: Equatable, Sendable {
     public let title: String
     public let tabCount: Int
     public let firstTabURL: String
+    /// A Private Browsing window (Safari doesn't put a profile into its title).
+    public let isPrivate: Bool
 
-    public init(id: Int, title: String, tabCount: Int, firstTabURL: String) {
+    public init(id: Int, title: String, tabCount: Int, firstTabURL: String, isPrivate: Bool = false) {
         self.id = id
         self.title = title
         self.tabCount = tabCount
         self.firstTabURL = firstTabURL
+        self.isPrivate = isPrivate
     }
 
     /// URLs Safari uses for the start page / blank tab.
@@ -31,13 +34,15 @@ public struct SafariTab: Equatable, Sendable {
     public let index: Int
     public let tabCount: Int
     public let url: String
+    public let isPrivate: Bool
 
-    public init(windowID: Int, windowTitle: String, index: Int, tabCount: Int, url: String) {
+    public init(windowID: Int, windowTitle: String, index: Int, tabCount: Int, url: String, isPrivate: Bool = false) {
         self.windowID = windowID
         self.windowTitle = windowTitle
         self.index = index
         self.tabCount = tabCount
         self.url = url
+        self.isPrivate = isPrivate
     }
 
     public var isStartPage: Bool { SafariWindow.startPageURLs.contains(url) }
@@ -46,6 +51,23 @@ public struct SafariTab: Equatable, Sendable {
 public enum ProfileMatcher {
     /// Safari titles windows as "<Profile> — <Page title>".
     public static let separator = " — "
+
+    /// Stands for Private Browsing wherever a profile name goes (settings, rules, the HUD); not a real name,
+    /// since Safari profile names can't start with "#"… and even if one did, it wouldn't be this one.
+    public static let privateProfile = "#private"
+
+    /// The profile of a window: Private Browsing if it is private (and `profiles` includes it), else by title.
+    public static func profile(of window: SafariWindow, among profiles: [String]) -> String? {
+        window.isPrivate ? (profiles.contains(privateProfile) ? privateProfile : nil)
+            : profile(ofTitle: window.title, among: profiles)
+    }
+
+    /// Whether a window with `title` is a Private Browsing one: with profiles, Safari prefixes every other
+    /// window's title with its profile. Without known profiles nothing can be told.
+    public static func isPrivate(title: String, realProfiles: [String]) -> Bool {
+        let realProfiles = cleaned(realProfiles).filter { $0 != privateProfile }
+        return !realProfiles.isEmpty && profile(ofTitle: title, among: realProfiles) == nil
+    }
 
     /// Returns the profile from `profiles` the window title belongs to, preferring the longest name.
     public static func profile(ofTitle title: String, among profiles: [String]) -> String? {
@@ -121,7 +143,7 @@ public enum Switcher {
         let profiles = ProfileMatcher.cleaned(profiles)
         guard profiles.count >= 2 else { return nil }
         func profile(of window: SafariWindow) -> String? {
-            ProfileMatcher.profile(ofTitle: window.title, among: profiles)
+            ProfileMatcher.profile(of: window, among: profiles)
         }
         let front = windows.first
         let currentProfile = front.flatMap(profile(of:))

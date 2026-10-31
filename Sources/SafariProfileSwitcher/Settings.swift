@@ -60,25 +60,40 @@ extension ShortcutAction {
     var title: String {
         switch self {
         case .switchProfile: String(localized: "Switch profile")
-        case .moveTabToOtherProfile: String(localized: "Move tab to the other profile")
+        case .moveTabToOtherProfile: String(localized: "Move tab to the next profile")
         case .detachTab: String(localized: "Move tab to a separate window")
         case .attachTab: String(localized: "Move tab back to the main window")
-        case .hudNext: String(localized: "Switcher: next")
-        case .hudPrevious: String(localized: "Switcher: previous")
+        case .hudNext: String(localized: "Switcher: next profile")
+        case .hudPrevious: String(localized: "Switcher: previous profile")
+        case .hudUp: String(localized: "Switcher: window above")
+        case .hudDown: String(localized: "Switcher: window below")
         case .hudCancel: String(localized: "Switcher: cancel")
+        case .switchBack: String(localized: "Switcher: back")
         }
     }
 
+    /// ⌥ is the profile modifier: ⌥⇥ switches, and while the switcher is open ⌥ + arrows move in it
+    /// (⌥⇧⇥ goes back). ⌃⌥ + arrows act on the tab (⌃ as in Safari's ⌃⇥ for tabs). Not ⌥⇧ + arrows:
+    /// in text fields those select by word and paragraph, and the shortcuts would take that away in Safari.
     var defaultShortcut: Shortcut? {
         switch self {
         case .switchProfile: Shortcut(keyCode: kVK_Tab, modifiers: .option, keyLabel: "⇥")
-        case .moveTabToOtherProfile: Shortcut(keyCode: kVK_Tab, modifiers: [.option, .shift], keyLabel: "⇥")
-        case .detachTab: Shortcut(keyCode: kVK_UpArrow, modifiers: [.option, .shift], keyLabel: "↑")
-        case .attachTab: Shortcut(keyCode: kVK_DownArrow, modifiers: [.option, .shift], keyLabel: "↓")
+        case .moveTabToOtherProfile: Shortcut(keyCode: kVK_RightArrow, modifiers: [.control, .option], keyLabel: "→")
+        case .detachTab: Shortcut(keyCode: kVK_UpArrow, modifiers: [.control, .option], keyLabel: "↑")
+        case .attachTab: Shortcut(keyCode: kVK_DownArrow, modifiers: [.control, .option], keyLabel: "↓")
         case .hudNext: Shortcut(keyCode: kVK_RightArrow, modifiers: .option, keyLabel: "→")
-        case .hudPrevious: Shortcut(keyCode: kVK_Tab, modifiers: [.option, .shift], keyLabel: "⇥")
+        case .hudPrevious: Shortcut(keyCode: kVK_LeftArrow, modifiers: .option, keyLabel: "←")
+        case .hudUp: Shortcut(keyCode: kVK_UpArrow, modifiers: .option, keyLabel: "↑")
+        case .hudDown: Shortcut(keyCode: kVK_DownArrow, modifiers: .option, keyLabel: "↓")
         case .hudCancel: Shortcut(keyCode: kVK_Escape, modifiers: .option, keyLabel: "⎋")
+        case .switchBack: nil
         }
+    }
+
+    /// The switch shortcut with Shift added, if it has no Shift yet.
+    static func switchBack(for shortcut: Shortcut?) -> Shortcut? {
+        guard let shortcut, !shortcut.flags.contains(.shift) else { return nil }
+        return Shortcut(keyCode: Int(shortcut.keyCode), modifiers: shortcut.flags.union(.shift), keyLabel: shortcut.keyLabel)
     }
 
     static var defaultBindings: [ShortcutAction: Shortcut] {
@@ -88,12 +103,13 @@ extension ShortcutAction {
 
 /// What the switch shortcut does when Safari isn't the front app.
 enum OutsideSafariAction: String, CaseIterable, Identifiable {
-    case activateSafari, switchProfile, passThrough
+    case showSwitcher, activateSafari, switchProfile, passThrough
 
     var id: Self { self }
 
     var title: String {
         switch self {
+        case .showSwitcher: String(localized: "Show the switcher (a quick press activates Safari)")
         case .activateSafari: String(localized: "Activate Safari")
         case .switchProfile: String(localized: "Activate Safari and switch profile")
         case .passThrough: String(localized: "Nothing (leave the shortcut to other apps)")
@@ -110,14 +126,80 @@ enum HUDMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .off: String(localized: "Off")
-        case .profiles: String(localized: "Profiles")
+        case .profiles: String(localized: "Profiles and their windows")
         case .windows: String(localized: "Windows")
         }
     }
 }
 
+/// What the menu bar item shows.
+enum MenuBarStyle: String, CaseIterable, Identifiable {
+    /// The app's icon only.
+    case icon
+    /// The front Safari window's profile as a colored badge.
+    case badge
+    /// The badge and the profile's name.
+    case badgeAndName
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .icon: String(localized: "App icon")
+        case .badge: String(localized: "Profile badge")
+        case .badgeAndName: String(localized: "Profile badge and name")
+        }
+    }
+}
+
+/// Badge colors, like the ones Safari offers for profiles.
+enum ProfileColor: String, CaseIterable, Identifiable {
+    case blue, purple, pink, red, orange, yellow, green, teal, graphite
+
+    var id: Self { self }
+
+    var color: NSColor {
+        switch self {
+        case .blue: .systemBlue
+        case .purple: .systemPurple
+        case .pink: .systemPink
+        case .red: .systemRed
+        case .orange: .systemOrange
+        case .yellow: .systemYellow
+        case .green: .systemGreen
+        case .teal: .systemTeal
+        case .graphite: NSColor(white: 0.32, alpha: 1)
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .blue: String(localized: "Blue")
+        case .purple: String(localized: "Purple")
+        case .pink: String(localized: "Pink")
+        case .red: String(localized: "Red")
+        case .orange: String(localized: "Orange")
+        case .yellow: String(localized: "Yellow")
+        case .green: String(localized: "Green")
+        case .teal: String(localized: "Teal")
+        case .graphite: String(localized: "Graphite")
+        }
+    }
+}
+
+extension ProfileMatcher {
+    /// The name to show for a profile (Private Browsing has no name of its own).
+    static func displayName(_ profile: String) -> String {
+        profile == privateProfile ? String(localized: "Private Browsing") : profile
+    }
+}
+
 @MainActor
 final class AppSettings: ObservableObject {
+    /// `defaultLinkProfile` value: hand links no rule matches to Safari, which applies its own
+    /// "Open links in profile" website setting.
+    static let safariDecides = "#safari"
+
     private let defaults: UserDefaults
 
     /// Profiles the switch shortcut goes through, in order (two or more to switch).
@@ -141,14 +223,14 @@ final class AppSettings: ObservableObject {
     @Published var hudMode: HUDMode { didSet { defaults.set(hudMode.rawValue, forKey: "hudMode") } }
     /// How long the modifier has to be held before the HUD appears, in seconds.
     @Published var hudDelay: Double { didSet { defaults.set(hudDelay, forKey: "hudDelay") } }
-    @Published var showProfileIndicator: Bool {
-        didSet { defaults.set(showProfileIndicator, forKey: "showProfileIndicator") }
-    }
+    @Published var menuBarStyle: MenuBarStyle { didSet { defaults.set(menuBarStyle.rawValue, forKey: "menuBarStyle") } }
+    /// Badge color per profile; missing ones get a color by their position.
+    @Published var profileColors: [String: String] { didSet { defaults.set(profileColors, forKey: "profileColors") } }
     /// Link rules, first match wins.
     @Published var linkRules: [LinkRule] {
         didSet { defaults.set(try? JSONEncoder().encode(linkRules), forKey: "linkRules") }
     }
-    /// Profile for links no rule matches; empty means "ask".
+    /// Profile for links no rule matches; empty means "ask", `safariDecides` leaves it to Safari.
     @Published var defaultLinkProfile: String { didSet { defaults.set(defaultLinkProfile, forKey: "defaultLinkProfile") } }
     /// Open the link inside redirect wrappers (Outlook Safe Links, Facebook, Google, VK) instead of the wrapper.
     @Published var unwrapRedirects: Bool { didSet { defaults.set(unwrapRedirects, forKey: "unwrapRedirects") } }
@@ -178,17 +260,20 @@ final class AppSettings: ObservableObject {
         shortcuts = Self.loadShortcuts(from: defaults)
         closeEmptyWindow = defaults.object(forKey: "closeEmptyWindow") as? Bool ?? true
         outsideSafariAction = defaults.string(forKey: "outsideSafariAction").flatMap(OutsideSafariAction.init)
-            ?? .activateSafari
+            ?? .showSwitcher
         newWindowInPlace = defaults.object(forKey: "newWindowInPlace") as? Bool ?? true
         matchFullScreen = defaults.object(forKey: "matchFullScreen") as? Bool ?? true
         alignExistingWindows = defaults.object(forKey: "alignExistingWindows") as? Bool ?? false
         keepSourceTab = defaults.object(forKey: "keepSourceTab") as? Bool ?? false
         hudMode = defaults.string(forKey: "hudMode").flatMap(HUDMode.init) ?? .profiles
         hudDelay = defaults.object(forKey: "hudDelay") as? Double ?? 0.2
-        showProfileIndicator = defaults.object(forKey: "showProfileIndicator") as? Bool ?? true
+        menuBarStyle = defaults.string(forKey: "menuBarStyle").flatMap(MenuBarStyle.init)
+            // Before the styles: a switch for the profile badge.
+            ?? (defaults.object(forKey: "showProfileIndicator") as? Bool == false ? .icon : .badge)
+        profileColors = defaults.dictionary(forKey: "profileColors") as? [String: String] ?? [:]
         profileBadges = defaults.dictionary(forKey: "profileBadges") as? [String: String] ?? [:]
         linkRules = defaults.data(forKey: "linkRules").flatMap { try? JSONDecoder().decode([LinkRule].self, from: $0) } ?? []
-        defaultLinkProfile = defaults.string(forKey: "defaultLinkProfile") ?? ""
+        defaultLinkProfile = defaults.string(forKey: "defaultLinkProfile") ?? Self.safariDecides
         stripTrackingParams = defaults.object(forKey: "stripTrackingParams") as? Bool ?? true
         unwrapRedirects = defaults.object(forKey: "unwrapRedirects") as? Bool ?? true
         detachedFrom = (defaults.dictionary(forKey: "detachedFrom") as? [String: Int] ?? [:])
@@ -208,6 +293,7 @@ final class AppSettings: ObservableObject {
     /// Profiles the settings refer to: the switching list, link rules and the default link profile.
     var usedProfiles: [String] {
         ProfileMatcher.cleaned(switchProfiles + linkRules.map(\.profile) + [defaultLinkProfile])
+            .filter { $0 != Self.safariDecides }
     }
 
     /// Adds `profile` to the end of the switching list, or removes it.
@@ -224,9 +310,21 @@ final class AppSettings: ObservableObject {
         switchProfiles.swapAt(index, index + offset)
     }
 
+    /// Badge text: custom, or the first letter; empty for Private Browsing, which shows a symbol instead.
     func badge(for profile: String) -> String {
         let custom = profileBadges[profile]?.trimmingCharacters(in: .whitespaces) ?? ""
-        return custom.isEmpty ? String(profile.prefix(1)).uppercased() : custom
+        if !custom.isEmpty || profile == ProfileMatcher.privateProfile { return custom }
+        return String(profile.prefix(1)).uppercased()
+    }
+
+    /// The badge color: chosen, graphite for Private Browsing, else by the profile's place in `profiles`.
+    func color(for profile: String, among profiles: [String]) -> ProfileColor {
+        if let chosen = profileColors[profile].flatMap(ProfileColor.init) { return chosen }
+        if profile == ProfileMatcher.privateProfile { return .graphite }
+        let palette = ProfileColor.allCases.filter { $0 != .graphite }
+        let index = profiles.filter { $0 != ProfileMatcher.privateProfile }.firstIndex(of: profile)
+            ?? abs(profile.unicodeScalars.reduce(0) { $0 &+ Int($1.value) })
+        return palette[index % palette.count]
     }
 
     /// Binds `shortcut` to `action` (`nil` disables it), resolving conflicts.

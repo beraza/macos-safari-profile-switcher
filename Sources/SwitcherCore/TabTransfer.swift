@@ -48,14 +48,15 @@ public enum TabTransfer {
         guard switching.count >= 2 else { return .failure(.profilesNotConfigured) }
         guard !tab.isStartPage else { return .failure(.nothingToMove) }
         let profiles = ProfileMatcher.cleaned(switching + [preferredProfile ?? ""])
-        func profile(ofTitle title: String) -> String? { ProfileMatcher.profile(ofTitle: title, among: profiles) }
+        func profile(of window: SafariWindow) -> String? { ProfileMatcher.profile(of: window, among: profiles) }
 
-        let current = profile(ofTitle: tab.windowTitle)
+        let current = profile(of: SafariWindow(
+            id: tab.windowID, title: tab.windowTitle, tabCount: tab.tabCount, firstTabURL: "", isPrivate: tab.isPrivate))
         guard let target = preferredProfile.flatMap({ $0.isEmpty || $0 == current ? nil : $0 })
             ?? ProfileMatcher.next(after: current, in: switching)
         else { return .failure(.profilesNotConfigured) }
         let destination: TabTransferPlan.Target = windows
-            .first { $0.id != tab.windowID && profile(ofTitle: $0.title) == target }
+            .first { $0.id != tab.windowID && profile(of: $0) == target }
             .map { .window(id: $0.id) } ?? .newWindow(profile: target)
         let cleanup: TabTransferPlan.Cleanup = keepSource ? .none
             : tab.tabCount <= 1 ? .closeWindow(id: tab.windowID)
@@ -74,9 +75,10 @@ public enum TabAttach {
         windows: [SafariWindow], sourceWindowID: Int, profiles: [String], detachedFrom: Int?
     ) -> Int? {
         guard let source = windows.first(where: { $0.id == sourceWindowID }) else { return nil }
-        let profile = ProfileMatcher.profile(ofTitle: source.title, among: profiles)
+        let profile = ProfileMatcher.profile(of: source, among: profiles)
         let candidates = windows.filter {
-            $0.id != sourceWindowID && ProfileMatcher.profile(ofTitle: $0.title, among: profiles) == profile
+            $0.id != sourceWindowID && $0.isPrivate == source.isPrivate
+                && ProfileMatcher.profile(of: $0, among: profiles) == profile
         }
         if let detachedFrom, candidates.contains(where: { $0.id == detachedFrom }) {
             return detachedFrom

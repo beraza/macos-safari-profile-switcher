@@ -107,6 +107,13 @@ enum SelfTest {
               && !settings.closeEmptyWindow,
               "settings: survive reload")
         check(defaults.data(forKey: "shortcut") == nil, "settings: legacy key removed")
+
+        let bindings = ShortcutAction.defaultBindings
+        check(ShortcutAction.allCases.allSatisfy { action in
+            bindings[action].map { ShortcutConflicts.conflict(for: action, key: $0, in: bindings) == nil } ?? true
+        } && ShortcutAction.switchBack(for: bindings[.switchProfile]).map { back in
+            !bindings.contains { $0.key.scopes.contains(.hud) && $0.value == back }
+        } == true, "settings: default shortcuts don't clash (⌥⇧⇥ is free for going back)")
     }
 
     private static func runHotKeyChecks() {
@@ -195,8 +202,8 @@ enum SelfTest {
 
         check(controller.linkProfile(for: URL(string: "https://www.example.com/x")!, sourceApp: "com.apple.mail") == profile,
               "links: rule matches (\(profile))")
-        check(controller.linkProfile(for: URL(string: "https://www.example.com/x")!, sourceApp: "com.apple.Notes") == nil,
-              "links: rule for another app doesn't")
+        check(controller.linkProfile(for: URL(string: "https://www.example.com/x")!, sourceApp: "com.apple.Notes") == AppSettings.safariDecides,
+              "links: rule for another app doesn't, Safari decides")
         controller.openLink(URL(string: "https://example.com/?spsw-link&utm_source=selftest")!, sourceApp: "com.apple.mail")
         pause(1.5)
         let tab = try SafariController.currentTab()
@@ -240,11 +247,11 @@ enum SelfTest {
         let controller = AppController(customSettings: settings, promptForAccessibility: false)
 
         let profilesState = HUDState.profiles(windows: windows, profiles: controller.knownProfiles)
-        check(profilesState.items.first?.title == profileTwo && profilesState.selected?.title == profileOne,
-              "hud: current profile first, the other selected")
+        check(profilesState.groups.first?.profile == profileTwo && profilesState.selected?.target == .window(id: one),
+              "hud: current profile first, the other's window selected")
         let directory = ProcessInfo.processInfo.environment["SPSW_SNAPSHOT_DIR"].map(URL.init(fileURLWithPath:))
             ?? FileManager.default.temporaryDirectory
-        controller.hud.model.badge = { settings.badge(for: $0) }
+        controller.hud.model.look = { $0.map(controller.look(for:)) ?? .unknown }
         for (name, state) in [("profiles", profilesState),
                               ("windows", HUDState.windows(windows: windows, profiles: controller.knownProfiles))] {
             controller.hud.show(state, near: nil)

@@ -8,41 +8,75 @@ final class HUDTests: XCTestCase {
 
     private let profiles = ["Личное", "Работа", "Клиент"]
 
-    func testProfilesCurrentFirstNextSelected() {
+    func testProfileColumnsCurrentFirstNextSelected() {
         let windows = [window(1, "Работа — Jira"), window(2, "Личное — Mail"), window(3, "Работа — Docs")]
         let state = HUDState.profiles(windows: windows, profiles: profiles)
-        XCTAssertEqual(state.items.map(\.title), ["Работа", "Личное", "Клиент"])
-        XCTAssertEqual(state.items.map(\.count), [2, 1, 0])
-        XCTAssertEqual(state.selected?.target, .profile("Личное"))
+        XCTAssertEqual(state.groups.map(\.profile), ["Работа", "Личное", "Клиент"])
+        XCTAssertEqual(state.groups.map(\.windowCount), [2, 1, 0])
+        XCTAssertEqual(state.items.map(\.target), [.window(id: 1), .window(id: 3), .window(id: 2), .profile("Клиент")])
+        XCTAssertEqual(state.items.map(\.title), ["Jira", "Docs", "Mail", ""])
+        XCTAssertEqual(state.selected?.target, .window(id: 2))
     }
 
-    func testProfilesWithoutCurrentSelectsFirst() {
+    func testProfileColumnsWithoutCurrentSelectFirst() {
         let state = HUDState.profiles(windows: [window(9, "Частный доступ")], profiles: profiles)
         XCTAssertEqual(state.selected?.target, .profile("Личное"))
+        XCTAssertEqual(state.groups.last?.profile, nil, "windows of no profile get their own column")
+    }
+
+    func testPrivateWindowsFormTheirOwnColumn() {
+        let windows = [SafariWindow(id: 5, title: "Поиск", tabCount: 1, firstTabURL: "", isPrivate: true),
+                       window(1, "Работа — Jira")]
+        let state = HUDState.profiles(windows: windows, profiles: ["Работа", ProfileMatcher.privateProfile])
+        XCTAssertEqual(state.groups.map(\.profile), [ProfileMatcher.privateProfile, "Работа"])
+        XCTAssertEqual(state.items.first?.title, "Поиск")
+        XCTAssertEqual(state.selected?.target, .window(id: 1))
+    }
+
+    func testStepsBetweenAndWithinProfiles() {
+        let windows = [window(1, "Работа — Jira"), window(2, "Личное — Mail"), window(3, "Работа — Docs"),
+                       window(4, "Личное — News")]
+        var state = HUDState.profiles(windows: windows, profiles: profiles)
+        XCTAssertEqual(state.selected?.target, .window(id: 2))
+        state.step(.down)
+        XCTAssertEqual(state.selected?.target, .window(id: 4))
+        state.step(.down)
+        XCTAssertEqual(state.selected?.target, .window(id: 2), "wraps within the profile")
+        state.step(.up)
+        XCTAssertEqual(state.selected?.target, .window(id: 4))
+        state.step(.next)
+        XCTAssertEqual(state.selected?.target, .profile("Клиент"))
+        state.step(.next)
+        XCTAssertEqual(state.selected?.target, .window(id: 1), "wraps to the first profile, its front window")
+        state.step(by: -2)
+        XCTAssertEqual(state.selected?.target, .window(id: 2))
     }
 
     func testWindowsFrontToBackSecondSelected() {
         let windows = [window(1, "Работа — Jira", tabs: 3), window(2, "Личное — Mail")]
         let state = HUDState.windows(windows: windows, profiles: profiles)
-        XCTAssertEqual(state.items.map(\.title), ["Jira", "Mail"])
-        XCTAssertEqual(state.items.map(\.profile), ["Работа", "Личное"])
+        XCTAssertEqual(state.items.map(\.title), ["Jira", "Mail", ""])
+        XCTAssertEqual(state.items.map(\.profile), ["Работа", "Личное", "Клиент"])
         XCTAssertEqual(state.selected?.target, .window(id: 2))
     }
 
     func testMoveWrapsBothWays() {
-        var state = HUDState.profiles(windows: [window(1, "Личное — A")], profiles: profiles)
+        var state = HUDState.windows(
+            windows: [window(1, "Личное — A"), window(2, "Личное — B"), window(3, "Личное — C")], profiles: ["Личное"])
         state.move(by: 1)
         XCTAssertEqual(state.selection, 2)
         state.move(by: 1)
         XCTAssertEqual(state.selection, 0)
-        state.move(by: -1)
+        state.step(.up)
         XCTAssertEqual(state.selection, 2)
     }
 
-    func testSingleWindowSelectionClamped() {
+    func testWindowListOffersNewWindowsForProfilesWithout() {
         let state = HUDState.windows(windows: [window(1, "Личное — A")], profiles: profiles)
-        XCTAssertEqual(state.selection, 0)
-        XCTAssertNil(HUDState.windows(windows: [], profiles: profiles).selected)
+        XCTAssertEqual(state.items.map(\.target), [.window(id: 1), .profile("Работа"), .profile("Клиент")])
+        XCTAssertEqual(state.selected?.target, .profile("Работа"), "with one window, the next profile's new window")
+        XCTAssertEqual(HUDState.windows(windows: [], profiles: profiles).selected?.target, .profile("Личное"))
+        XCTAssertNil(HUDState.windows(windows: [], profiles: []).selected)
     }
 }
 
@@ -70,6 +104,14 @@ final class HUDKeySessionTests: XCTestCase {
         var session = HUDKeySession(delay: 0.5)
         _ = session.press(at: 0)
         XCTAssertEqual(session.press(at: 0.05), .show(extraPresses: 1))
+    }
+
+    func testBackPressBeforeHUDSelectsBackwards() {
+        var session = HUDKeySession(delay: 0.5)
+        XCTAssertEqual(session.pressBack(at: 0), .none, "Shift alone doesn't start a session")
+        _ = session.press(at: 0)
+        XCTAssertEqual(session.pressBack(at: 0.1), .show(extraPresses: -1))
+        XCTAssertEqual(session.pressBack(at: 0.2), .moveSelection(-1))
     }
 
     func testZeroDelayShowsOnFirstPress() {

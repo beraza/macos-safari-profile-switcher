@@ -18,10 +18,10 @@ public enum WindowGroups {
     public static func make(windows: [SafariWindow], profiles: [String]) -> [WindowGroup] {
         var groups = profiles.filter { !$0.isEmpty }.map { profile in
             WindowGroup(profile: profile, windows: windows.filter {
-                ProfileMatcher.profile(ofTitle: $0.title, among: profiles) == profile
+                ProfileMatcher.profile(of: $0, among: profiles) == profile
             })
         }
-        let others = windows.filter { ProfileMatcher.profile(ofTitle: $0.title, among: profiles) == nil }
+        let others = windows.filter { ProfileMatcher.profile(of: $0, among: profiles) == nil }
         if !others.isEmpty { groups.append(WindowGroup(profile: nil, windows: others)) }
         return groups
     }
