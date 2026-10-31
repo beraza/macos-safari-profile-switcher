@@ -1,15 +1,43 @@
 import Carbon.HIToolbox
 import SwitcherCore
 
+/// What a registered hotkey does: a configurable action, or a numbered profile shortcut.
+enum HotKeyCommand: Hashable {
+    case action(ShortcutAction)
+    /// Go to the profile at this place (1…9) in the switching list.
+    case goToProfile(Int)
+    /// Move the current tab to the profile at this place.
+    case moveTabToProfile(Int)
+
+    /// Carbon hotkey id: actions from 1, profiles from 100, tab moves from 200.
+    var id: UInt32 {
+        switch self {
+        case .action(let action): UInt32(ShortcutAction.allCases.firstIndex(of: action)! + 1)
+        case .goToProfile(let number): UInt32(100 + number)
+        case .moveTabToProfile(let number): UInt32(200 + number)
+        }
+    }
+
+    init?(id: UInt32) {
+        let actions = ShortcutAction.allCases
+        switch id {
+        case 1...UInt32(actions.count): self = .action(actions[Int(id) - 1])
+        case 101...109: self = .goToProfile(Int(id) - 100)
+        case 201...209: self = .moveTabToProfile(Int(id) - 200)
+        default: return nil
+        }
+    }
+}
+
 /// Global hotkeys via Carbon `RegisterEventHotKey` (no Input Monitoring permission needed).
 /// Only the bindings passed to `apply` are registered, so keys aren't swallowed when they shouldn't be.
 final class HotKeyManager {
-    var onPress: ((ShortcutAction) -> Void)?
+    var onPress: ((HotKeyCommand) -> Void)?
 
-    /// Shortcuts that failed to register (e.g. taken by another app), kept until the action registers fine.
-    private(set) var failures: [ShortcutAction: (shortcut: Shortcut, status: OSStatus)] = [:]
+    /// Shortcuts that failed to register (e.g. taken by another app), kept until the command registers fine.
+    private(set) var failures: [HotKeyCommand: (shortcut: Shortcut, status: OSStatus)] = [:]
 
-    private var registered: [ShortcutAction: (shortcut: Shortcut, ref: EventHotKeyRef)] = [:]
+    private var registered: [HotKeyCommand: (shortcut: Shortcut, ref: EventHotKeyRef)] = [:]
     private var handlerRef: EventHandlerRef?
 
     private static let signature = OSType(0x5350_5357) // 'SPSW'
@@ -22,12 +50,11 @@ final class HotKeyManager {
             let status = GetEventParameter(
                 event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
                 MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
-            let actions = ShortcutAction.allCases
             guard status == noErr, hotKeyID.signature == HotKeyManager.signature,
-                  hotKeyID.id >= 1, Int(hotKeyID.id) <= actions.count
+                  let command = HotKeyCommand(id: hotKeyID.id)
             else { return OSStatus(eventNotHandledErr) }
             let manager = Unmanaged<HotKeyManager>.fromOpaque(userData).takeUnretainedValue()
-            manager.onPress?(actions[Int(hotKeyID.id) - 1])
+            manager.onPress?(command)
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handlerRef)
     }
@@ -38,23 +65,23 @@ final class HotKeyManager {
     }
 
     /// Registers exactly `bindings`: unregisters removed or changed ones first, so keys can be swapped.
-    func apply(_ bindings: [ShortcutAction: Shortcut]) {
-        for (action, entry) in registered where bindings[action] != entry.shortcut {
+    func apply(_ bindings: [HotKeyCommand: Shortcut]) {
+        for (command, entry) in registered where bindings[command] != entry.shortcut {
             UnregisterEventHotKey(entry.ref)
-            registered[action] = nil
+            registered[command] = nil
         }
-        for (index, action) in ShortcutAction.allCases.enumerated() {
-            guard let shortcut = bindings[action], registered[action] == nil else { continue }
+        // Configurable actions first, so they win a key over the derived ones.
+        for (command, shortcut) in bindings.sorted(by: { $0.key.id < $1.key.id }) where registered[command] == nil {
             var ref: EventHotKeyRef?
-            let id = EventHotKeyID(signature: Self.signature, id: UInt32(index + 1))
+            let id = EventHotKeyID(signature: Self.signature, id: command.id)
             let status = RegisterEventHotKey(
                 shortcut.keyCode, shortcut.carbonModifiers, id, GetApplicationEventTarget(), 0, &ref)
             if status == noErr, let ref {
-                registered[action] = (shortcut, ref)
-                failures[action] = nil
+                registered[command] = (shortcut, ref)
+                failures[command] = nil
             } else {
-                log.error("RegisterEventHotKey \(action.rawValue, privacy: .public) failed: \(status)")
-                failures[action] = (shortcut, status)
+                log.error("RegisterEventHotKey \(String(describing: command), privacy: .public) failed: \(status)")
+                failures[command] = (shortcut, status)
             }
         }
     }

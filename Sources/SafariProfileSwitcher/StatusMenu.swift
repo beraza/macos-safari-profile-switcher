@@ -56,7 +56,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let settings = controller.settings
-        let windows = SafariController.runningApp == nil ? nil : Result { try SafariController.windows() }
+        let safari = controller.safari
+        let windows = safari.isRunning ? Result { try safari.windows() } : nil
         controller.updateProfileWarnings()
         // Only what needs attention goes above the windows.
         var notes = controller.profileWarnings.map(\.message) + [controller.lastError].compactMap { $0 }

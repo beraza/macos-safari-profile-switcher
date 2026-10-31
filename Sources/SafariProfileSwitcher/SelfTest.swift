@@ -122,20 +122,24 @@ enum SelfTest {
     private static func runHotKeyChecks() {
         let manager = HotKeyManager()
         // Unusual combos nobody else should hold.
-        let bindings: [ShortcutAction: Shortcut] = [
-            .detachTab: Shortcut(keyCode: kVK_F17, modifiers: [.control, .option, .shift, .command], keyLabel: "F17"),
-            .attachTab: Shortcut(keyCode: kVK_F18, modifiers: [.control, .option, .shift, .command], keyLabel: "F18"),
+        let bindings: [HotKeyCommand: Shortcut] = [
+            .action(.detachTab): Shortcut(keyCode: kVK_F17, modifiers: [.control, .option, .shift, .command], keyLabel: "F17"),
+            .goToProfile(3): Shortcut(keyCode: kVK_F18, modifiers: [.control, .option, .shift, .command], keyLabel: "F18"),
         ]
         manager.apply(bindings)
         check(manager.failures.isEmpty, "hotkeys: registered \(bindings.count)")
         // A second registration of the same keys in this process must fail and be reported.
         let other = HotKeyManager()
-        other.apply([.switchProfile: bindings[.detachTab]!])
-        check(other.failures[.switchProfile]?.status == OSStatus(eventHotKeyExistsErr), "hotkeys: taken keys reported")
+        let taken = bindings[.action(.detachTab)]!
+        other.apply([.action(.switchProfile): taken])
+        check(other.failures[.action(.switchProfile)]?.status == OSStatus(eventHotKeyExistsErr), "hotkeys: taken keys reported")
         manager.apply([:])
-        other.apply([.switchProfile: bindings[.detachTab]!])
+        other.apply([.action(.switchProfile): taken])
         check(other.failures.isEmpty, "hotkeys: keys free again after unregistering")
         other.apply([:])
+        check(HotKeyCommand(id: HotKeyCommand.moveTabToProfile(7).id) == .moveTabToProfile(7)
+              && HotKeyCommand(id: HotKeyCommand.action(.switchBack).id) == .action(.switchBack),
+              "hotkeys: command ids round-trip")
     }
 
     /// Builds the menu bar menu against the live Safari windows.

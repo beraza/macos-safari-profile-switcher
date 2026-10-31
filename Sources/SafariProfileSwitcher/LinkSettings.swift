@@ -25,9 +25,14 @@ struct LinkSettings: View {
                     .foregroundStyle(.secondary)
             }
             Section {
-                ForEach($settings.linkRules) { $rule in
-                    RuleRow(rule: $rule, profiles: controller.knownProfiles, detected: controller.detectedProfiles,
-                            onMove: move, onDelete: delete)
+                // A long list scrolls by itself, so the window stays on the screen.
+                if settings.linkRules.count > Self.rulesWithoutScrolling {
+                    ScrollView {
+                        VStack(spacing: 10) { rules }
+                    }
+                    .frame(height: CGFloat(Self.rulesWithoutScrolling) * 66)
+                } else {
+                    rules
                 }
                 Button {
                     settings.linkRules.append(LinkRule(pattern: "", profile: controller.knownProfiles.first ?? ""))
@@ -63,6 +68,15 @@ struct LinkSettings: View {
                 TextField("From app", text: $testApp, prompt: Text(verbatim: "com.apple.mail"))
                 Text(testResult).foregroundStyle(.secondary).textSelection(.enabled)
             }
+        }
+    }
+
+    private static let rulesWithoutScrolling = 5
+
+    @ViewBuilder private var rules: some View {
+        ForEach($settings.linkRules) { $rule in
+            RuleRow(rule: $rule, profiles: controller.knownProfiles, detected: controller.detectedProfiles,
+                    onMove: move, onDelete: delete)
         }
     }
 

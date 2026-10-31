@@ -158,4 +158,23 @@ final class SwitcherTests: XCTestCase {
         XCTAssertEqual(ProfileMatcher.next(after: "X", in: ["A", "B"]), "B")
         XCTAssertNil(ProfileMatcher.next(after: nil, in: []))
     }
+
+    func testGoToProfileByNumber() {
+        let profiles = [personal, work, "Клиент"]
+        let windows = [window(1, "Работа — Jira"), window(2, "Личное — Mail"), window(3, "Работа — Docs")]
+        XCTAssertEqual(Switcher.decide(windows: windows, target: personal, profiles: profiles).target, .focus(windowID: 2))
+        XCTAssertEqual(Switcher.decide(windows: windows, target: "Клиент", profiles: profiles).target,
+                       .openNew(profile: "Клиент"))
+        // Already there: the next window of the profile, then back to the first one.
+        let first = Switcher.decide(windows: windows, target: work, profiles: profiles)
+        XCTAssertEqual(first.target, .focus(windowID: 3))
+        let second = Switcher.decide(
+            windows: [window(3, "Работа — Docs"), window(1, "Работа — Jira"), window(2, "Личное — Mail")],
+            target: work, profiles: profiles, cycle: first.cycle)
+        XCTAssertEqual(second.target, .focus(windowID: 1))
+        // The only window of the profile stays, and isn't closed even if it's an empty start page.
+        let alone = Switcher.decide(windows: [window(5, "Личное — Начальная страница", tabs: 1, url: "favorites://")],
+                                    target: personal, profiles: profiles)
+        XCTAssertEqual(alone, SwitchPlan(target: .focus(windowID: 5), closeWindowID: nil, cycle: nil))
+    }
 }

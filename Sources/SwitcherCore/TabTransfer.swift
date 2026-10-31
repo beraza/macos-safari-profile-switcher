@@ -31,6 +31,8 @@ public enum TabTransferError: Error, Equatable, Sendable {
     case profilesNotConfigured
     /// The tab shows the start page; there's no URL to move.
     case nothingToMove
+    /// Moving to the profile the tab (window) is already in.
+    case alreadyInProfile
 }
 
 public enum TabTransfer {
@@ -39,20 +41,23 @@ public enum TabTransfer {
     ///   - windows: Safari windows, front-most first.
     ///   - profiles: profiles to switch between, in order; without a rule the tab goes to the next one.
     ///   - preferredProfile: profile a link rule picks for the URL; used unless the tab is already there.
+    ///   - explicitProfile: the profile asked for ("move tab to profile N"); wins over rules.
     ///   - keepSource: copy instead of move.
     public static func plan(
         tab: SafariTab, windows: [SafariWindow], profiles: [String],
-        preferredProfile: String? = nil, keepSource: Bool = false
+        preferredProfile: String? = nil, explicitProfile: String? = nil, keepSource: Bool = false
     ) -> Result<TabTransferPlan, TabTransferError> {
         let switching = ProfileMatcher.cleaned(profiles)
-        guard switching.count >= 2 else { return .failure(.profilesNotConfigured) }
+        guard switching.count >= 2 || explicitProfile != nil else { return .failure(.profilesNotConfigured) }
         guard !tab.isStartPage else { return .failure(.nothingToMove) }
-        let profiles = ProfileMatcher.cleaned(switching + [preferredProfile ?? ""])
+        let profiles = ProfileMatcher.cleaned(switching + [preferredProfile ?? "", explicitProfile ?? ""])
         func profile(of window: SafariWindow) -> String? { ProfileMatcher.profile(of: window, among: profiles) }
 
         let current = profile(of: SafariWindow(
             id: tab.windowID, title: tab.windowTitle, tabCount: tab.tabCount, firstTabURL: "", isPrivate: tab.isPrivate))
-        guard let target = preferredProfile.flatMap({ $0.isEmpty || $0 == current ? nil : $0 })
+        if let explicitProfile, explicitProfile == current { return .failure(.alreadyInProfile) }
+        guard let target = explicitProfile
+            ?? preferredProfile.flatMap({ $0.isEmpty || $0 == current ? nil : $0 })
             ?? ProfileMatcher.next(after: current, in: switching)
         else { return .failure(.profilesNotConfigured) }
         let destination: TabTransferPlan.Target = windows
@@ -62,6 +67,49 @@ public enum TabTransfer {
             : tab.tabCount <= 1 ? .closeWindow(id: tab.windowID)
             : .closeTab(windowID: tab.windowID, index: tab.index)
         return .success(TabTransferPlan(profile: target, target: destination, cleanup: cleanup))
+    }
+}
+
+/// What to do to move a whole window (its tabs' URLs) to another profile: a new window of that profile.
+public struct WindowTransferPlan: Equatable, Sendable {
+    public let profile: String
+    /// URLs to open in the new window, in tab order; start pages are left out.
+    public let urls: [String]
+    /// The tab to make current in the new window (0-based, among `urls`).
+    public let currentTab: Int
+    /// Close the source window afterwards (not when copying).
+    public let closeSource: Bool
+
+    public init(profile: String, urls: [String], currentTab: Int, closeSource: Bool) {
+        self.profile = profile
+        self.urls = urls
+        self.currentTab = currentTab
+        self.closeSource = closeSource
+    }
+}
+
+public enum WindowTransfer {
+    /// - Parameters:
+    ///   - window: the window to move.
+    ///   - tabs: its tabs (with URLs).
+    ///   - profiles: profiles to switch between; without `explicitProfile` the window goes to the next one.
+    ///   - explicitProfile: the profile asked for.
+    ///   - keepSource: copy instead of move.
+    public static func plan(
+        window: SafariWindow, tabs: WindowTabs, profiles: [String], explicitProfile: String? = nil, keepSource: Bool = false
+    ) -> Result<WindowTransferPlan, TabTransferError> {
+        let switching = ProfileMatcher.cleaned(profiles)
+        guard switching.count >= 2 || explicitProfile != nil else { return .failure(.profilesNotConfigured) }
+        let current = ProfileMatcher.profile(of: window, among: ProfileMatcher.cleaned(switching + [explicitProfile ?? ""]))
+        if let explicitProfile, explicitProfile == current { return .failure(.alreadyInProfile) }
+        guard let target = explicitProfile ?? ProfileMatcher.next(after: current, in: switching) else {
+            return .failure(.profilesNotConfigured)
+        }
+        let kept = tabs.urls.indices.filter { !SafariWindow.startPageURLs.contains(tabs.urls[$0]) }
+        guard !kept.isEmpty else { return .failure(.nothingToMove) }
+        let currentTab = kept.firstIndex(of: tabs.current) ?? kept.firstIndex { $0 > tabs.current } ?? kept.count - 1
+        return .success(WindowTransferPlan(
+            profile: target, urls: kept.map { tabs.urls[$0] }, currentTab: currentTab, closeSource: !keepSource))
     }
 }
 

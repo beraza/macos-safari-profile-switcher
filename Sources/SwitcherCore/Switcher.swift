@@ -169,4 +169,36 @@ public enum Switcher {
         }
         return SwitchPlan(target: .openNew(profile: targetProfile), closeWindowID: closeID, cycle: nil)
     }
+
+    /// Decides what a "go to profile N" press does: already in that profile, the next window of it not yet
+    /// shown in this round (or nothing if it has one window); otherwise its front-most window, or a new one.
+    /// - Parameter profiles: all known profiles, to tell which profile each window belongs to.
+    public static func decide(
+        windows: [SafariWindow], target: String, profiles: [String], cycle: CycleState? = nil, closeEmpty: Bool = true
+    ) -> SwitchPlan {
+        let profiles = ProfileMatcher.cleaned(profiles + [target])
+        func profile(of window: SafariWindow) -> String? { ProfileMatcher.profile(of: window, among: profiles) }
+        let front = windows.first
+        let currentProfile = front.flatMap(profile(of:))
+        if let front, currentProfile == target {
+            let visited = cycle.flatMap { $0.profile == target && $0.visited.last == front.id ? $0.visited : nil }
+                ?? [front.id]
+            let next = windows.first { profile(of: $0) == target && !visited.contains($0.id) }
+                // Round done: start over with the window shown first.
+                ?? windows.first { profile(of: $0) == target && $0.id == visited.first && $0.id != front.id }
+            guard let next else {
+                return SwitchPlan(target: .focus(windowID: front.id), closeWindowID: nil, cycle: nil)
+            }
+            let round = visited.contains(next.id) ? [next.id] : visited + [next.id]
+            return SwitchPlan(target: .focus(windowID: next.id),
+                              closeWindowID: closeEmpty && front.isEmptyStartPage ? front.id : nil,
+                              cycle: CycleState(profile: target, visited: round))
+        }
+        let closeID = closeEmpty && currentProfile != nil && front?.isEmptyStartPage == true ? front?.id : nil
+        if let window = windows.first(where: { profile(of: $0) == target }) {
+            return SwitchPlan(target: .focus(windowID: window.id), closeWindowID: closeID,
+                              cycle: CycleState(profile: target, visited: [window.id]))
+        }
+        return SwitchPlan(target: .openNew(profile: target), closeWindowID: closeID, cycle: nil)
+    }
 }

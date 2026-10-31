@@ -17,6 +17,10 @@ let package = Package(
             name: "SwitcherCoreTests",
             dependencies: ["SwitcherCore"]
         ),
+        .testTarget(
+            name: "SafariProfileSwitcherTests",
+            dependencies: ["SafariProfileSwitcher", "SwitcherCore"]
+        ),
     ],
     swiftLanguageModes: [.v5]
 )

@@ -12,6 +12,12 @@ extension AppController {
 
     /// Opens a link from another app in the profile its rules pick; asks when none does or ⌥ is held.
     func openLink(_ url: URL, sourceApp: String?, forceChoice: Bool = false) {
+        // Only web links (and HTML files opened with the app). macOS sends only these to a default browser,
+        // but any app can send a "get URL" event directly: `javascript:` or other schemes go nowhere.
+        guard url.isFileURL || ["http", "https"].contains(url.scheme?.lowercased() ?? "") else {
+            log.error("ignored link with scheme \(url.scheme ?? "none", privacy: .public)")
+            return
+        }
         let url = url.isFileURL ? url : LinkCleaner.clean(
             url, unwrapRedirects: settings.unwrapRedirects, stripTracking: settings.stripTrackingParams)
         log.info("link \(url.absoluteString, privacy: .private) from \(sourceApp ?? "?", privacy: .public)")
@@ -33,16 +39,16 @@ extension AppController {
     /// Queued like the shortcut actions (and never dropped), so links clicked in a row each get their window.
     private func route(_ url: URL, to profile: String) {
         enqueue({ controller in
-            try await controller.launchSafariIfNeeded()
-            let windows = try SafariController.windows()
+            try await controller.safari.launch()
+            let windows = try controller.safari.windows()
             if let window = windows.first(where: { controller.profile(of: $0) == profile }) {
-                try SafariController.openTab(url: url.absoluteString, windowID: window.id)
-                try SafariController.focus(windowID: window.id)
+                try controller.safari.openTab(url: url.absoluteString, windowID: window.id)
+                try controller.safari.focus(windowID: window.id)
             } else {
                 let id = try await controller.openNewWindow(profile: profile, replacing: nil)
-                try SafariController.setCurrentTabURL(url.absoluteString, windowID: id)
+                try controller.safari.setCurrentTabURL(url.absoluteString, windowID: id)
             }
-            SafariController.runningApp?.activate()
+            controller.safari.activate()
         }, onError: { [weak self] error in
             // Never lose a link: let Safari open it the usual way.
             let name = ProfileMatcher.displayName(profile)
@@ -69,10 +75,7 @@ extension AppController {
     }
 
     func openInSafari(_ url: URL) {
-        guard let safari = NSWorkspace.shared.urlForApplication(withBundleIdentifier: SafariController.bundleID) else {
-            return
-        }
-        NSWorkspace.shared.open([url], withApplicationAt: safari, configuration: NSWorkspace.OpenConfiguration())
+        safari.open(url)
     }
 
     /// A menu at the mouse pointer with the profiles; hold ⌥ to also remember the choice for the host.
@@ -106,23 +109,6 @@ extension AppController {
 
     private static func shortened(_ text: String) -> String {
         text.count > 70 ? text.prefix(69) + "…" : text
-    }
-
-    /// Launches Safari in the background and waits until it answers AppleScript.
-    func launchSafariIfNeeded() async throws {
-        guard SafariController.runningApp == nil else { return }
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: SafariController.bundleID) else {
-            throw AppError(String(localized: "Safari not found"))
-        }
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = false
-        _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
-        let deadline = ContinuousClock.now + .seconds(10)
-        while ContinuousClock.now < deadline {
-            if (try? SafariController.windows()) != nil { return }
-            try await Task.sleep(for: .milliseconds(200))
-        }
-        throw SafariError.timeout
     }
 
     /// Whether this app opens http(s) links.

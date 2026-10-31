@@ -7,8 +7,8 @@ import SwitcherCore
 final class SwitcherHUD {
     final class Model: ObservableObject {
         @Published var state = HUDState(items: [], selection: 0)
-        /// The close shortcut was pressed once on the selected tab; the next press closes it.
-        @Published var pendingClose = false
+        /// A close shortcut was pressed once on the selected tab or window; the next press closes it.
+        @Published var pendingClose: HUDController.CloseTarget?
         var look: (String?) -> ProfileLook = { _ in .unknown }
         /// An item was clicked, or one of its tabs (0-based).
         var onClick: (Int, Int?) -> Void = { _, _ in }
@@ -91,17 +91,19 @@ private struct HUDView: View {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(state.items.enumerated().prefix(14)), id: \.offset) { index, item in
                     let selected = index == state.selection
+                    let closingWindow = selected && model.pendingClose == .window
                     HStack(spacing: 8) {
                         WindowRow(item: item, look: model.look(item.profile), showProfile: true,
-                                  selected: false, showCount: !showTabs)
+                                  selected: false, showCount: !showTabs, closing: closingWindow)
                             .frame(width: showTabs ? 250 : 440, alignment: .leading)
                             .onTapGesture { model.onClick(index, nil) }
                         if showTabs {
                             TabStrip(item: item, selectedTab: selected ? state.selectedTab : nil,
-                                     pendingClose: selected && model.pendingClose) { model.onClick(index, $0) }
+                                     pendingClose: selected && model.pendingClose == .tab) { model.onClick(index, $0) }
                         }
                     }
-                    .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Color.accentColor.opacity(0.35) : .clear))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(
+                        closingWindow ? Color.red.opacity(0.55) : selected ? Color.accentColor.opacity(0.35) : .clear))
                 }
             }
             .frame(width: showTabs ? 780 : 440, alignment: .leading)
@@ -142,8 +144,14 @@ private struct ProfileColumn: View {
             .padding(.bottom, 6)
             ForEach(rows, id: \.self) { index in
                 let item = model.state.items[index]
-                WindowRow(item: item, look: look, showProfile: false, selected: index == model.state.selection)
+                let selected = index == model.state.selection
+                WindowRow(item: item, look: look, showProfile: false, selected: selected,
+                          closing: selected && model.pendingClose == .window)
                     .onTapGesture { model.onClick(index, nil) }
+                if selected && !item.tabs.isEmpty {
+                    TabList(item: item, selectedTab: model.state.selectedTab,
+                            pendingClose: model.pendingClose == .tab) { model.onClick(index, $0) }
+                }
             }
             if hidden > 0 {
                 Text("+\(hidden)").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 10)
@@ -168,6 +176,58 @@ private struct ProfileColumn: View {
     }
 
     private var hidden: Int { group.items.count - rows.count }
+}
+
+/// Up to `visible` tab indexes around the selected (or current) tab.
+private func tabSlice(_ item: HUDItem, selectedTab: Int?, visible: Int) -> [Int] {
+    let count = item.tabs.count
+    guard count > visible else { return Array(0..<count) }
+    let focus = selectedTab ?? item.currentTab
+    let start = min(max(0, focus - visible / 2), count - visible)
+    return Array(start..<start + visible)
+}
+
+/// The tabs of the selected window under it in a profile column: the current tab in bold, the selected one
+/// highlighted (red while the close shortcut waits). Long lists show a slice around the selection.
+private struct TabList: View {
+    let item: HUDItem
+    let selectedTab: Int?
+    let pendingClose: Bool
+    let onClick: (Int) -> Void
+
+    private static let visible = 7
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(slice, id: \.self) { index in
+                let selected = index == selectedTab
+                let closing = selected && pendingClose
+                HStack(spacing: 4) {
+                    if closing { Image(systemName: "xmark.circle.fill") }
+                    Text(closing ? String(localized: "Close? ⌥W")
+                         : item.tabs[index].isEmpty ? String(localized: "Start Page") : item.tabs[index])
+                        .fontWeight(index == item.currentTab ? .semibold : .regular)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .font(.caption)
+                .foregroundStyle(selected ? Color.white : Color.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(RoundedRectangle(cornerRadius: 5).fill(
+                    closing ? Color.red : selected ? Color.accentColor : .clear))
+                .contentShape(Rectangle())
+                .onTapGesture { onClick(index) }
+            }
+            if item.tabs.count > slice.count {
+                Text("+\(item.tabs.count - slice.count)").font(.caption2).foregroundStyle(.secondary).padding(.leading, 8)
+            }
+        }
+        .padding(.leading, 18)
+        .padding(.bottom, 4)
+    }
+
+    private var slice: [Int] { tabSlice(item, selectedTab: selectedTab, visible: Self.visible) }
 }
 
 /// The tabs of a window as chips: the current tab in bold, the selected one highlighted (red while the
@@ -214,14 +274,7 @@ private struct TabStrip: View {
         .help(item.tabs[index])
     }
 
-    /// Up to `visible` tabs around the selected (or current) one.
-    private var slice: [Int] {
-        let count = item.tabs.count
-        guard count > Self.visible else { return Array(0..<count) }
-        let focus = selectedTab ?? item.currentTab
-        let start = min(max(0, focus - Self.visible / 2), count - Self.visible)
-        return Array(start..<start + Self.visible)
-    }
+    private var slice: [Int] { tabSlice(item, selectedTab: selectedTab, visible: Self.visible) }
 }
 
 private struct WindowRow: View {
@@ -230,6 +283,8 @@ private struct WindowRow: View {
     let showProfile: Bool
     let selected: Bool
     var showCount = true
+    /// The close-window shortcut waits for its second press.
+    var closing = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -247,7 +302,8 @@ private struct WindowRow: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(item.title.isEmpty ? String(localized: "Start Page") : item.title).lineLimit(1)
+                    Text(closing ? String(localized: "Close the window? ⌥⇧W")
+                         : item.title.isEmpty ? String(localized: "Start Page") : item.title).lineLimit(1)
                     if showProfile {
                         Text(item.profile == nil ? String(localized: "Other windows") : look.name)
                             .font(.caption).foregroundStyle(.secondary)
@@ -261,15 +317,19 @@ private struct WindowRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Color.accentColor.opacity(0.35) : .clear))
+        .background(RoundedRectangle(cornerRadius: 8).fill(
+            closing ? Color.red.opacity(0.55) : selected ? Color.accentColor.opacity(0.35) : .clear))
         .contentShape(Rectangle())
     }
 }
 
-private struct VisualEffect: NSViewRepresentable {
+/// A blurred panel background.
+struct VisualEffect: NSViewRepresentable {
+    var material: NSVisualEffectView.Material = .hudWindow
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = .hudWindow
+        view.material = material
         view.blendingMode = .behindWindow
         view.state = .active
         return view

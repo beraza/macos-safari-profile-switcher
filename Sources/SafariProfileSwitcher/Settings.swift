@@ -22,6 +22,9 @@ struct Shortcut: Codable, Equatable {
 
     var flags: NSEvent.ModifierFlags { NSEvent.ModifierFlags(rawValue: modifiers) }
 
+    /// Has a modifier besides Shift: a plain key (or Shift+key) as a global shortcut would swallow typing.
+    var isUsable: Bool { !flags.intersection([.command, .option, .control]).isEmpty }
+
     /// Modifiers that have to stay held for the HUD to stay open (Shift is used to go back).
     var holdFlags: NSEvent.ModifierFlags { flags.subtracting(.shift) }
 
@@ -61,6 +64,8 @@ extension ShortcutAction {
         switch self {
         case .switchProfile: String(localized: "Switch profile")
         case .moveTabToOtherProfile: String(localized: "Move tab to the next profile")
+        case .moveWindowToOtherProfile: String(localized: "Move window to the next profile")
+        case .searchTabs: String(localized: "Search tabs in all profiles")
         case .detachTab: String(localized: "Move tab to a separate window")
         case .attachTab: String(localized: "Move tab back to the main window")
         case .hudNext: String(localized: "Switcher: next profile")
@@ -68,6 +73,10 @@ extension ShortcutAction {
         case .hudUp: String(localized: "Switcher: window above")
         case .hudDown: String(localized: "Switcher: window below")
         case .hudCloseTab: String(localized: "Switcher: close the tab (press twice)")
+        case .hudCloseWindow: String(localized: "Switcher: close the window (press twice)")
+        case .hudMoveTab: String(localized: "Switcher: move the tab to the next profile")
+        case .hudMoveWindow: String(localized: "Switcher: move the window to the next profile")
+        case .hudDetachTab: String(localized: "Switcher: move the tab to a separate window")
         case .hudCancel: String(localized: "Switcher: cancel")
         case .switchBack: String(localized: "Switcher: back")
         }
@@ -80,13 +89,21 @@ extension ShortcutAction {
         switch self {
         case .switchProfile: Shortcut(keyCode: kVK_Tab, modifiers: .option, keyLabel: "⇥")
         case .moveTabToOtherProfile: Shortcut(keyCode: kVK_RightArrow, modifiers: [.control, .option], keyLabel: "→")
+        case .moveWindowToOtherProfile:
+            Shortcut(keyCode: kVK_RightArrow, modifiers: [.control, .option, .shift], keyLabel: "→")
+        case .searchTabs: Shortcut(keyCode: kVK_ANSI_F, modifiers: [.control, .option], keyLabel: "F")
         case .detachTab: Shortcut(keyCode: kVK_UpArrow, modifiers: [.control, .option], keyLabel: "↑")
         case .attachTab: Shortcut(keyCode: kVK_DownArrow, modifiers: [.control, .option], keyLabel: "↓")
         case .hudNext: Shortcut(keyCode: kVK_RightArrow, modifiers: .option, keyLabel: "→")
         case .hudPrevious: Shortcut(keyCode: kVK_LeftArrow, modifiers: .option, keyLabel: "←")
         case .hudUp: Shortcut(keyCode: kVK_UpArrow, modifiers: .option, keyLabel: "↑")
         case .hudDown: Shortcut(keyCode: kVK_DownArrow, modifiers: .option, keyLabel: "↓")
+        // As in Safari: W for the tab, ⇧W for the window.
         case .hudCloseTab: Shortcut(keyCode: kVK_ANSI_W, modifiers: .option, keyLabel: "W")
+        case .hudCloseWindow: Shortcut(keyCode: kVK_ANSI_W, modifiers: [.option, .shift], keyLabel: "W")
+        case .hudMoveTab: Shortcut(keyCode: kVK_ANSI_M, modifiers: .option, keyLabel: "M")
+        case .hudMoveWindow: Shortcut(keyCode: kVK_ANSI_M, modifiers: [.option, .shift], keyLabel: "M")
+        case .hudDetachTab: Shortcut(keyCode: kVK_ANSI_D, modifiers: .option, keyLabel: "D")
         case .hudCancel: Shortcut(keyCode: kVK_Escape, modifiers: .option, keyLabel: "⎋")
         case .switchBack: nil
         }
@@ -116,6 +133,38 @@ enum OutsideSafariAction: String, CaseIterable, Identifiable {
         case .switchProfile: String(localized: "Activate Safari and switch profile")
         case .passThrough: String(localized: "Nothing (leave the shortcut to other apps)")
         }
+    }
+}
+
+/// Modifiers for the numbered profile shortcuts (with 1…9: the profile at that place in the switching list).
+enum NumberModifier: String, CaseIterable, Identifiable {
+    case off, option, controlOption, optionCommand
+
+    var id: Self { self }
+
+    var flags: NSEvent.ModifierFlags? {
+        switch self {
+        case .off: nil
+        case .option: .option
+        case .controlOption: [.control, .option]
+        case .optionCommand: [.option, .command]
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .off: String(localized: "Off")
+        case .option: "⌥1 … ⌥9"
+        case .controlOption: "⌃⌥1 … ⌃⌥9"
+        case .optionCommand: "⌥⌘1 … ⌥⌘9"
+        }
+    }
+
+    /// The shortcut for profile `number` (1…9).
+    func shortcut(_ number: Int) -> Shortcut? {
+        guard let flags, (1...9).contains(number) else { return nil }
+        let keyCodes = [kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5, kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9]
+        return Shortcut(keyCode: keyCodes[number - 1], modifiers: flags, keyLabel: String(number))
     }
 }
 
@@ -228,6 +277,14 @@ final class AppSettings: ObservableObject {
     @Published var menuBarStyle: MenuBarStyle { didSet { defaults.set(menuBarStyle.rawValue, forKey: "menuBarStyle") } }
     /// Badge color per profile; missing ones get a color by their position.
     @Published var profileColors: [String: String] { didSet { defaults.set(profileColors, forKey: "profileColors") } }
+    /// ⌥1…⌥9: go to the profile at that place in the switching list.
+    @Published var profileNumberModifier: NumberModifier {
+        didSet { defaults.set(profileNumberModifier.rawValue, forKey: "profileNumberModifier") }
+    }
+    /// ⌃⌥1…⌃⌥9: move the tab to that profile.
+    @Published var moveTabNumberModifier: NumberModifier {
+        didSet { defaults.set(moveTabNumberModifier.rawValue, forKey: "moveTabNumberModifier") }
+    }
     /// Link rules, first match wins.
     @Published var linkRules: [LinkRule] {
         didSet { defaults.set(try? JSONEncoder().encode(linkRules), forKey: "linkRules") }
@@ -273,6 +330,9 @@ final class AppSettings: ObservableObject {
             // Before the styles: a switch for the profile badge.
             ?? (defaults.object(forKey: "showProfileIndicator") as? Bool == false ? .icon : .badge)
         profileColors = defaults.dictionary(forKey: "profileColors") as? [String: String] ?? [:]
+        profileNumberModifier = defaults.string(forKey: "profileNumberModifier").flatMap(NumberModifier.init) ?? .option
+        moveTabNumberModifier = defaults.string(forKey: "moveTabNumberModifier").flatMap(NumberModifier.init)
+            ?? .controlOption
         profileBadges = defaults.dictionary(forKey: "profileBadges") as? [String: String] ?? [:]
         linkRules = defaults.data(forKey: "linkRules").flatMap { try? JSONDecoder().decode([LinkRule].self, from: $0) } ?? []
         defaultLinkProfile = defaults.string(forKey: "defaultLinkProfile") ?? Self.safariDecides
@@ -342,21 +402,30 @@ final class AppSettings: ObservableObject {
     // MARK: - Shortcut storage
 
     /// Stored as differences from the defaults, so actions added later get their default shortcut.
-    private struct StoredShortcuts: Codable {
+    struct StoredShortcuts: Codable {
         var custom: [String: Shortcut] = [:]
         var disabled: [String] = []
+
+        /// The defaults with these differences; unknown actions and shortcuts without a modifier are ignored.
+        var bindings: [ShortcutAction: Shortcut] {
+            var bindings = ShortcutAction.defaultBindings
+            for (name, shortcut) in custom {
+                if let action = ShortcutAction(rawValue: name), action.isConfigurable, shortcut.isUsable {
+                    bindings[action] = shortcut
+                }
+            }
+            for name in disabled {
+                if let action = ShortcutAction(rawValue: name) { bindings[action] = nil }
+            }
+            return bindings
+        }
     }
 
     private static func loadShortcuts(from defaults: UserDefaults) -> [ShortcutAction: Shortcut] {
         var bindings = ShortcutAction.defaultBindings
         if let data = defaults.data(forKey: "shortcuts"),
            let stored = try? JSONDecoder().decode(StoredShortcuts.self, from: data) {
-            for (name, shortcut) in stored.custom {
-                if let action = ShortcutAction(rawValue: name) { bindings[action] = shortcut }
-            }
-            for name in stored.disabled {
-                if let action = ShortcutAction(rawValue: name) { bindings[action] = nil }
-            }
+            bindings = stored.bindings
         } else if let data = defaults.data(forKey: "shortcut"),
                   let legacy = try? JSONDecoder().decode(Shortcut.self, from: data) {
             // Before per-action shortcuts there was only the switch shortcut.
@@ -366,6 +435,11 @@ final class AppSettings: ObservableObject {
     }
 
     private func saveShortcuts() {
+        defaults.set(try? JSONEncoder().encode(storedShortcuts), forKey: "shortcuts")
+        defaults.removeObject(forKey: "shortcut")
+    }
+
+    private var storedShortcuts: StoredShortcuts {
         var stored = StoredShortcuts()
         for action in ShortcutAction.allCases {
             switch (shortcuts[action], action.defaultShortcut) {
@@ -377,8 +451,82 @@ final class AppSettings: ObservableObject {
                 }
             }
         }
-        defaults.set(try? JSONEncoder().encode(stored), forKey: "shortcuts")
-        defaults.removeObject(forKey: "shortcut")
+        return stored
+    }
+
+    // MARK: - Export and import
+
+    /// What a user sets, for a file to back up or move to another Mac (window bookkeeping stays out).
+    /// Every field is optional, so a file from an older or newer version imports what it has.
+    struct Backup: Codable {
+        var app = "SafariProfileSwitcher"
+        var version: Int? = 1
+        var switchProfiles: [String]?
+        var shortcuts: StoredShortcuts?
+        var profileNumberModifier: String?
+        var moveTabNumberModifier: String?
+        var closeEmptyWindow: Bool?
+        var outsideSafariAction: String?
+        var newWindowInPlace: Bool?
+        var matchFullScreen: Bool?
+        var alignExistingWindows: Bool?
+        var keepSourceTab: Bool?
+        var hudMode: String?
+        var hudDelay: Double?
+        var menuBarStyle: String?
+        var profileColors: [String: String]?
+        var profileBadges: [String: String]?
+        var linkRules: [LinkRule]?
+        var defaultLinkProfile: String?
+        var unwrapRedirects: Bool?
+        var stripTrackingParams: Bool?
+    }
+
+    struct ImportError: LocalizedError {
+        var errorDescription: String? { String(localized: "This isn't a settings file of Safari Profile Switcher") }
+    }
+
+    func exportData() throws -> Data {
+        let backup = Backup(
+            switchProfiles: switchProfiles, shortcuts: storedShortcuts,
+            profileNumberModifier: profileNumberModifier.rawValue, moveTabNumberModifier: moveTabNumberModifier.rawValue,
+            closeEmptyWindow: closeEmptyWindow, outsideSafariAction: outsideSafariAction.rawValue,
+            newWindowInPlace: newWindowInPlace, matchFullScreen: matchFullScreen,
+            alignExistingWindows: alignExistingWindows, keepSourceTab: keepSourceTab, hudMode: hudMode.rawValue,
+            hudDelay: hudDelay, menuBarStyle: menuBarStyle.rawValue, profileColors: profileColors,
+            profileBadges: profileBadges, linkRules: linkRules, defaultLinkProfile: defaultLinkProfile,
+            unwrapRedirects: unwrapRedirects, stripTrackingParams: stripTrackingParams)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(backup)
+    }
+
+    /// Applies a file from `exportData()`. Values are checked as they would be in the settings window:
+    /// shortcuts need a modifier, badges are cut to 4 characters, the delay stays in its range.
+    func importData(_ data: Data) throws {
+        guard let backup = try? JSONDecoder().decode(Backup.self, from: data), backup.app == "SafariProfileSwitcher"
+        else { throw ImportError() }
+        if let value = backup.switchProfiles {
+            switchProfiles = ProfileMatcher.cleaned(value.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+        }
+        if let value = backup.shortcuts { shortcuts = value.bindings }
+        if let value = backup.profileNumberModifier.flatMap(NumberModifier.init) { profileNumberModifier = value }
+        if let value = backup.moveTabNumberModifier.flatMap(NumberModifier.init) { moveTabNumberModifier = value }
+        if let value = backup.closeEmptyWindow { closeEmptyWindow = value }
+        if let value = backup.outsideSafariAction.flatMap(OutsideSafariAction.init) { outsideSafariAction = value }
+        if let value = backup.newWindowInPlace { newWindowInPlace = value }
+        if let value = backup.matchFullScreen { matchFullScreen = value }
+        if let value = backup.alignExistingWindows { alignExistingWindows = value }
+        if let value = backup.keepSourceTab { keepSourceTab = value }
+        if let value = backup.hudMode.flatMap(HUDMode.init) { hudMode = value }
+        if let value = backup.hudDelay, value.isFinite { hudDelay = min(max(value, 0), 0.6) }
+        if let value = backup.menuBarStyle.flatMap(MenuBarStyle.init) { menuBarStyle = value }
+        if let value = backup.profileColors { profileColors = value.filter { ProfileColor(rawValue: $0.value) != nil } }
+        if let value = backup.profileBadges { profileBadges = value.mapValues { String($0.prefix(4)) } }
+        if let value = backup.linkRules { linkRules = value }
+        if let value = backup.defaultLinkProfile { defaultLinkProfile = value }
+        if let value = backup.unwrapRedirects { unwrapRedirects = value }
+        if let value = backup.stripTrackingParams { stripTrackingParams = value }
     }
 }
 

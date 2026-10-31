@@ -49,8 +49,9 @@ enum SafariController {
                     set out to {}
                     repeat with w in windows
                         try
-                            -- Closed windows linger as invisible ones (for "Reopen Last Closed Window"); skip them.
-                            if visible of w or miniaturized of w then
+                            -- Closed windows linger as invisible ones (for "Reopen Last Closed Window"); skip them,
+                            -- and windows without tabs: Safari's settings, a detached Web Inspector.
+                            if (visible of w or miniaturized of w) and (count of tabs of w) > 0 then
                                 set u to ""
                                 try
                                     set u to URL of tab 1 of w
@@ -71,8 +72,8 @@ enum SafariController {
                     set out to {}
                     repeat with w in windows
                         try
-                            if visible of w or miniaturized of w then
-                                set end of out to {id of w, index of current tab of w, name of every tab of w}
+                            if (visible of w or miniaturized of w) and (count of tabs of w) > 0 then
+                                set end of out to {id of w, index of current tab of w, name of every tab of w, URL of every tab of w}
                             end if
                         end try
                     end repeat
@@ -126,7 +127,7 @@ enum SafariController {
                     repeat with w in windows
                         set isVisible to false
                         try
-                            set isVisible to visible of w
+                            set isVisible to visible of w and (count of tabs of w) > 0
                         end try
                         if isVisible then
                             set t to current tab of w
@@ -270,14 +271,22 @@ enum SafariController {
         guard list.numberOfItems > 0 else { return [:] }
         var result: [Int: WindowTabs] = [:]
         for index in 1...list.numberOfItems {
-            guard let item = list.atIndex(index), item.numberOfItems == 3,
+            guard let item = list.atIndex(index), item.numberOfItems == 4,
                   let id = item.atIndex(1)?.int32Value, let current = item.atIndex(2)?.int32Value,
-                  let names = item.atIndex(3)
+                  let names = item.atIndex(3), let urls = item.atIndex(4)
             else { continue }
-            let titles = names.numberOfItems == 0 ? [] : (1...names.numberOfItems).map { names.atIndex($0)?.stringValue ?? "" }
-            result[Int(id)] = WindowTabs(titles: titles, current: Int(current) - 1)
+            func strings(_ list: NSAppleEventDescriptor) -> [String] {
+                // A tab without a page has `missing value` as its URL: an empty string here.
+                list.numberOfItems == 0 ? [] : (1...list.numberOfItems).map { list.atIndex($0)?.stringValue ?? "" }
+            }
+            result[Int(id)] = WindowTabs(titles: strings(names), urls: strings(urls), current: Int(current) - 1)
         }
         return result
+    }
+
+    /// Opens a new window with `url` (in the profile Safari picks) and returns its id.
+    static func makeDocument(url: String) throws -> Int {
+        Int(try call("makeDocument", NSAppleEventDescriptor(string: url)).int32Value)
     }
 
     /// Makes a tab (1-based) the window's current one.
@@ -379,6 +388,21 @@ enum SafariController {
             return abs(candidateFrame.minX - frame.minX) <= 1 && abs(candidateFrame.minY - frame.minY) <= 1
                 && abs(candidateFrame.width - frame.width) <= 1 && abs(candidateFrame.height - frame.height) <= 1
         } ?? candidates.first
+    }
+
+    /// The AppleScript id of Safari's focused window (the last one used, also while Safari is in the
+    /// background): its AX title and frame matched against the AppleScript windows.
+    static func focusedWindowID() -> Int? {
+        guard let app = axApp(), let focused = axElement(app, kAXFocusedWindowAttribute),
+              let title = axString(focused, kAXTitleAttribute)
+        else { return nil }
+        let candidates = ((try? windows()) ?? []).filter { $0.title == title }
+        guard candidates.count > 1, let frame = axFrame(focused) else { return candidates.first?.id }
+        return candidates.first { candidate in
+            guard let bounds = try? bounds(windowID: candidate.id) else { return false }
+            return abs(bounds.minX - frame.minX) <= 1 && abs(bounds.minY - frame.minY) <= 1
+                && abs(bounds.width - frame.width) <= 1 && abs(bounds.height - frame.height) <= 1
+        }?.id ?? candidates.first?.id
     }
 
     static func isFullScreen(windowID: Int) -> Bool {
@@ -507,12 +531,19 @@ enum SafariController {
 
     // MARK: - Diagnostics
 
+    /// What the app sees of Safari, for bug reports. Private Browsing windows are listed without their
+    /// titles and addresses: the file stays on disk, and private browsing shouldn't leave traces there.
     static func diagnostics() -> String {
         var lines = ["Accessibility: \(AXIsProcessTrusted())"]
+        let profiles = detectProfiles()
+        func shown(_ title: String) -> String {
+            ProfileMatcher.isPrivate(title: title, realProfiles: profiles) ? "<private window>" : title
+        }
         do {
             lines.append("AppleScript windows (front first):")
             for window in try windows() {
-                lines.append("  id=\(window.id) tabs=\(window.tabCount)\(window.isPrivate ? " private" : "") url=\(window.firstTabURL) title=\(window.title)")
+                lines.append(window.isPrivate ? "  id=\(window.id) tabs=\(window.tabCount) private"
+                    : "  id=\(window.id) tabs=\(window.tabCount) url=\(window.firstTabURL) title=\(window.title)")
             }
         } catch {
             lines.append("  error: \(error.localizedDescription)")
@@ -521,7 +552,7 @@ enum SafariController {
             lines.append("AX windows:")
             for window in axChildren(app, kAXWindowsAttribute) {
                 let frame = axFrame(window).map { "\($0)" } ?? "?"
-                lines.append("  \(axString(window, kAXTitleAttribute) ?? "?") frame=\(frame)")
+                lines.append("  \(shown(axString(window, kAXTitleAttribute) ?? "?")) frame=\(frame)")
             }
         }
         for (name, menu) in [("File", barMenu(at: 2)), ("Window", barMenu(fromEnd: 2))] {
@@ -534,7 +565,7 @@ enum SafariController {
         }
         lines.append("Move Tab titles: \(moveTabTitles.sorted())")
         lines.append("New Private Window titles: \(newPrivateWindowTitles.sorted())")
-        lines.append("Detected profiles: \(detectProfiles())")
+        lines.append("Detected profiles: \(profiles)")
         return lines.joined(separator: "\n")
     }
 

@@ -32,11 +32,14 @@ public struct HUDItem: Equatable, Sendable {
 /// The tabs of a window, as Safari lists them.
 public struct WindowTabs: Equatable, Sendable {
     public let titles: [String]
+    /// Same order as `titles`; empty if not listed.
+    public let urls: [String]
     /// 0-based.
     public let current: Int
 
-    public init(titles: [String], current: Int) {
+    public init(titles: [String], urls: [String] = [], current: Int) {
         self.titles = titles
+        self.urls = urls
         self.current = current
     }
 }
@@ -117,9 +120,15 @@ public struct HUDState: Equatable, Sendable {
             let target = Self.wrap(group + (direction == .next ? 1 : -1), count: groups.count)
             selection = groups[target].items.lowerBound
         case .up, .down:
+            // Through the selected window's tabs, then on to the next (previous) window of the profile.
+            let down = direction == .down
+            if let tabs = selected?.tabs, !tabs.isEmpty, down ? tabSelection < tabs.count - 1 : tabSelection > 0 {
+                tabSelection += down ? 1 : -1
+                return
+            }
             let range = groups[group].items
-            let offset = Self.wrap(selection - range.lowerBound + (direction == .down ? 1 : -1), count: range.count)
-            selection = range.lowerBound + offset
+            selection = range.lowerBound + Self.wrap(selection - range.lowerBound + (down ? 1 : -1), count: range.count)
+            if let tabs = selected?.tabs, !tabs.isEmpty { tabSelection = down ? 0 : tabs.count - 1 }
         }
     }
 
@@ -142,7 +151,8 @@ public struct HUDState: Equatable, Sendable {
     /// A column per profile with its windows, front to back (a profile without windows gets one item that
     /// opens a new window). The current profile (the front window's) comes first, then the others in
     /// `profiles` order, then windows of no profile; the next profile's front window is selected.
-    public static func profiles(windows: [SafariWindow], profiles: [String]) -> HUDState {
+    /// - Parameter tabs: tabs by window id; the selected window shows them and ⌥↑/⌥↓ go through them.
+    public static func profiles(windows: [SafariWindow], profiles: [String], tabs: [Int: WindowTabs] = [:]) -> HUDState {
         let profiles = ProfileMatcher.cleaned(profiles)
         func profile(of window: SafariWindow) -> String? { ProfileMatcher.profile(of: window, among: profiles) }
         let current = windows.first.flatMap(profile(of:))
@@ -159,7 +169,8 @@ public struct HUDState: Equatable, Sendable {
             }
             items += own.map { window in
                 HUDItem(target: .window(id: window.id), title: pageTitle(window, profile: group),
-                        profile: group, count: window.tabCount)
+                        profile: group, count: window.tabCount,
+                        tabs: tabs[window.id]?.titles ?? [], currentTab: tabs[window.id]?.current ?? 0)
             }
             groups.append(HUDGroup(profile: group, items: start..<items.count, windowCount: own.count))
         }

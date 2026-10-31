@@ -71,6 +71,22 @@ final class HUDTests: XCTestCase {
         XCTAssertEqual(state.selection, 2)
     }
 
+    func testProfileColumnsGoThroughTabsOfWindows() {
+        let windows = [window(1, "Работа — Jira", tabs: 2), window(2, "Личное — Mail", tabs: 2), window(3, "Личное — News", tabs: 1)]
+        let tabs = [2: WindowTabs(titles: ["Mail", "Calendar"], current: 1), 3: WindowTabs(titles: ["News"], current: 0)]
+        var state = HUDState.profiles(windows: windows, profiles: profiles, tabs: tabs)
+        XCTAssertEqual(state.selected?.target, .window(id: 2))
+        XCTAssertEqual(state.selectedTab, 1)
+        state.step(.down)
+        XCTAssertEqual(state.selected?.target, .window(id: 3), "past the last tab: the next window, its first tab")
+        XCTAssertEqual(state.selectedTab, 0)
+        state.step(.up)
+        XCTAssertEqual(state.selected?.target, .window(id: 2))
+        XCTAssertEqual(state.selectedTab, 1, "back up: the previous window's last tab")
+        state.step(.up)
+        XCTAssertEqual(state.selectedTab, 0)
+    }
+
     func testWindowListTabs() {
         let windows = [window(1, "Работа — Jira", tabs: 3), window(2, "Личное — Mail", tabs: 2)]
         let tabs = [1: WindowTabs(titles: ["Jira", "Docs", "CI"], current: 0),

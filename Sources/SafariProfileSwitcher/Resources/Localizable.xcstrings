@@ -113,6 +113,16 @@
         }
       }
     },
+    "Accessibility permission": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешение Универсального доступа"
+          }
+        }
+      }
+    },
     "Activate Safari": {
       "localizations": {
         "ru": {
@@ -139,6 +149,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Добавить правило"
+          }
+        }
+      }
+    },
+    "Allow it above, then check again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешите его выше и проверьте снова"
           }
         }
       }
@@ -313,6 +333,26 @@
         }
       }
     },
+    "Check": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка"
+          }
+        }
+      }
+    },
+    "Check how it works": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить работу"
+          }
+        }
+      }
+    },
     "Choose at least two profiles in Settings": {
       "localizations": {
         "ru": {
@@ -359,6 +399,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Закрывать окно, если в нём только стартовая страница"
+          }
+        }
+      }
+    },
+    "Close the window? ⌥⇧W": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть окно? ⌥⇧W"
           }
         }
       }
@@ -493,6 +543,26 @@
         }
       }
     },
+    "Exported": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспортировано"
+          }
+        }
+      }
+    },
+    "Export…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспортировать…"
+          }
+        }
+      }
+    },
     "From app": {
       "localizations": {
         "ru": {
@@ -523,6 +593,16 @@
         }
       }
     },
+    "Go to profile 1…9": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти в профиль 1…9"
+          }
+        }
+      }
+    },
     "Graphite": {
       "localizations": {
         "ru": {
@@ -539,6 +619,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Зелёный"
+          }
+        }
+      }
+    },
+    "Imported": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Импортировано"
+          }
+        }
+      }
+    },
+    "Import…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Импортировать…"
           }
         }
       }
@@ -633,6 +733,16 @@
         }
       }
     },
+    "Move a tab to a new window and raise a window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вынос вкладки в новое окно и подъём окна"
+          }
+        }
+      }
+    },
     "Move tab back to the main window": {
       "localizations": {
         "ru": {
@@ -653,12 +763,42 @@
         }
       }
     },
+    "Move tab to profile 1…9": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести вкладку в профиль 1…9"
+          }
+        }
+      }
+    },
     "Move tab to the next profile": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Перенести вкладку в следующий профиль"
+          }
+        }
+      }
+    },
+    "Move window to the next profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести окно в следующий профиль"
+          }
+        }
+      }
+    },
+    "New Private Browsing window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое частное окно"
           }
         }
       }
@@ -683,6 +823,16 @@
         }
       }
     },
+    "New window of a profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое окно профиля"
+          }
+        }
+      }
+    },
     "No Accessibility permission": {
       "localizations": {
         "ru": {
@@ -699,6 +849,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нет другого окна этого профиля"
+          }
+        }
+      }
+    },
+    "No tabs found": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вкладки не найдены"
+          }
+        }
+      }
+    },
+    "No “Move Tab to New Window” in the Window menu": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В меню «Окно» нет пункта «Переместить вкладку в новое окно»"
           }
         }
       }
@@ -739,6 +909,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нечего переносить: во вкладке стартовая страница"
+          }
+        }
+      }
+    },
+    "Nothing to move: the window only shows start pages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нечего переносить: в окне только стартовые страницы"
           }
         }
       }
@@ -973,6 +1153,36 @@
         }
       }
     },
+    "Profiles by number": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили по номеру"
+          }
+        }
+      }
+    },
+    "Profiles in the File menu": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили в меню «Файл»"
+          }
+        }
+      }
+    },
+    "Profiles, shortcuts, link rules, colors and options, to back up or move to another Mac.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили, шорткаты, правила ссылок, цвета и параметры — для резервной копии или переноса на другой Mac."
+          }
+        }
+      }
+    },
     "Purple": {
       "localizations": {
         "ru": {
@@ -1123,6 +1333,16 @@
         }
       }
     },
+    "Safari is running": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safari запущен"
+          }
+        }
+      }
+    },
     "Safari not found": {
       "localizations": {
         "ru": {
@@ -1173,12 +1393,32 @@
         }
       }
     },
+    "Search tabs in all profiles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Искать вкладки во всех профилях"
+          }
+        }
+      }
+    },
     "Select All": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Выбрать все"
+          }
+        }
+      }
+    },
+    "Settings file": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл настроек"
           }
         }
       }
@@ -1263,6 +1503,16 @@
         }
       }
     },
+    "Switcher": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель"
+          }
+        }
+      }
+    },
     "Switcher (hold the modifier of the switch shortcut)": {
       "localizations": {
         "ru": {
@@ -1299,6 +1549,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Переключатель: закрыть вкладку (нажать дважды)"
+          }
+        }
+      }
+    },
+    "Switcher: close the window (press twice)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: закрыть окно (нажать дважды)"
+          }
+        }
+      }
+    },
+    "Switcher: move the tab to a separate window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: вынести вкладку в отдельное окно"
+          }
+        }
+      }
+    },
+    "Switcher: move the tab to the next profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: перенести вкладку в следующий профиль"
+          }
+        }
+      }
+    },
+    "Switcher: move the window to the next profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: перенести окно в следующий профиль"
           }
         }
       }
@@ -1393,6 +1683,16 @@
         }
       }
     },
+    "The number is the profile's place in the list on the Profiles tab. Only while Safari is in front; keys an action above uses are left to it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Номер — место профиля в списке на вкладке «Профили». Работают, только пока Safari на переднем плане; сочетания, занятые действиями выше, остаются за ними."
+          }
+        }
+      }
+    },
     "The switch shortcut also selects the next profile (in the window list, the next window), and with ⇧ the previous one. In the window list, next / previous go through the window's tabs. Release the modifier to confirm.": {
       "localizations": {
         "ru": {
@@ -1419,6 +1719,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вкладка и так одна в своём окне"
+          }
+        }
+      }
+    },
+    "The tab is already in this profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вкладка уже в этом профиле"
+          }
+        }
+      }
+    },
+    "The window is already in this profile": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окно уже в этом профиле"
+          }
+        }
+      }
+    },
+    "This isn't a settings file of Safari Profile Switcher": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не файл настроек Safari Profile Switcher"
+          }
+        }
+      }
+    },
+    "Tries what needs Accessibility on Safari: profile and private windows from the File menu, moving a tab to a new window, raising a window. Opens and closes its own temporary windows; yours stay as they are.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверяет на Safari всё, что требует Универсального доступа: окна профилей и частное окно из меню «Файл», вынос вкладки в новое окно, подъём окна. Открывает и закрывает только свои временные окна, ваши не трогает."
           }
         }
       }

@@ -7,6 +7,8 @@ import SwitcherCore
 final class HUDController {
     let hud = SwitcherHUD()
     var knownProfiles: () -> [String] = { [] }
+    /// Safari actions are queued: windows read now could be stale by the time the HUD shows.
+    var isBusy: () -> Bool = { false }
     /// Released before the HUD appeared; `true` if the press came while another app was in front.
     var onSwitchNow: (_ outsideSafari: Bool) -> Void = { _ in }
     /// The selection was confirmed: the item, the windows listed when the HUD opened, and the tab chosen
@@ -15,9 +17,23 @@ final class HUDController {
     /// A session started or ended, or the HUD appeared: the HUD's shortcuts are registered from the first
     /// press on (so ⌥⇧⇥ goes back even before the HUD shows), and the Safari ones only without a session.
     var onVisibilityChange: () -> Void = {}
+    /// Something to do with the selected tab or window (the HUD is closed first).
+    var onAction: (SelectionAction) -> Void = { _ in }
+
+    enum SelectionAction: Equatable {
+        case moveTab(windowID: Int, tab: Int?)
+        case detachTab(windowID: Int, tab: Int?)
+        case moveWindow(windowID: Int)
+    }
+
+    /// What the close shortcuts close.
+    enum CloseTarget {
+        case tab, window
+    }
     var onError: (String) -> Void = { _ in }
 
     private let settings: AppSettings
+    private let safari: SafariAPI
     private var session: HUDKeySession
     /// Polls the modifiers from the first press of the switch shortcut until they are released.
     private var timer: Timer?
@@ -26,12 +42,15 @@ final class HUDController {
     private var outsideSafari = false
     /// Safari windows when the HUD opened, front-most first.
     private var windows: [SafariWindow] = []
-    /// The tab the close shortcut was pressed on once, and when; a second press soon after closes it.
-    private var pendingClose: (windowID: Int, tab: Int, at: Double)?
+    /// What a close shortcut was pressed on once, and when; a second press soon after closes it.
+    private var pendingClose: (target: CloseTarget, windowID: Int, tab: Int?, at: Double)?
+    /// Windows and tabs read at the first press, while the modifier is held; the HUD shows them at once.
+    private var prefetched: (windows: [SafariWindow], tabs: [Int: WindowTabs], at: Double)?
     private static let closeConfirmation = 2.0
 
-    init(settings: AppSettings) {
+    init(settings: AppSettings, safari: SafariAPI) {
         self.settings = settings
+        self.safari = safari
         session = HUDKeySession(delay: settings.hudDelay)
     }
 
@@ -51,7 +70,10 @@ final class HUDController {
             self.outsideSafari = outsideSafari
         }
         apply(session.press(at: Self.now))
-        if starting { onVisibilityChange() }
+        if starting {
+            onVisibilityChange()
+            if session.isActive && !hud.isVisible { prefetch() }
+        }
     }
 
     /// The switch shortcut with Shift.
@@ -63,21 +85,43 @@ final class HUDController {
         update { $0.step(direction) }
     }
 
-    /// Closes the selected tab on the second press (within two seconds); the first press marks it.
-    func closeSelectedTab() {
-        guard hud.isVisible, let state, case .window(let id)? = state.selected?.target, let tab = state.selectedTab
-        else { return }
-        if let pending = pendingClose, pending.windowID == id, pending.tab == tab,
+    /// Closes the selected tab (or its whole window) on the second press within two seconds; the first
+    /// press marks it in red.
+    func closeSelected(_ target: CloseTarget) {
+        guard hud.isVisible, let state, case .window(let id)? = state.selected?.target else { return }
+        let tab = target == .tab ? state.selectedTab : nil
+        if target == .tab && tab == nil { return }
+        if let pending = pendingClose, pending.target == target, pending.windowID == id, pending.tab == tab,
            Self.now - pending.at < Self.closeConfirmation {
             setPendingClose(nil)
             do {
-                try SafariController.closeTab(index: tab + 1, windowID: id)
-                reload(selecting: id, tab: tab)
+                if let tab {
+                    try safari.closeTab(index: tab + 1, windowID: id)
+                } else {
+                    try safari.close(windowID: id)
+                }
+                reload(selecting: id, tab: tab ?? 0)
             } catch {
                 onError(error.localizedDescription)
             }
         } else {
-            setPendingClose((id, tab, Self.now))
+            setPendingClose((target, id, tab, Self.now))
+        }
+    }
+
+    enum SelectionCommand {
+        case moveTab, detachTab, moveWindow
+    }
+
+    /// Closes the HUD and hands the selected tab or window to `onAction`.
+    func runOnSelection(_ command: SelectionCommand) {
+        guard hud.isVisible, let state, case .window(let id)? = state.selected?.target else { return }
+        let tab = state.selectedTab
+        close(confirm: false)
+        switch command {
+        case .moveTab: onAction(.moveTab(windowID: id, tab: tab))
+        case .detachTab: onAction(.detachTab(windowID: id, tab: tab))
+        case .moveWindow: onAction(.moveWindow(windowID: id))
         }
     }
 
@@ -89,9 +133,22 @@ final class HUDController {
         hud.update(state)
     }
 
-    private func setPendingClose(_ pending: (windowID: Int, tab: Int, at: Double)?) {
+    private func setPendingClose(_ pending: (target: CloseTarget, windowID: Int, tab: Int?, at: Double)?) {
         pendingClose = pending
-        hud.model.pendingClose = pending != nil
+        hud.model.pendingClose = pending?.target
+    }
+
+    /// Reads windows and tabs right after the first press, so the HUD needn't wait for Safari when it shows.
+    /// (Still on the main thread, as all AppleScript here: a moment after the key event, during the delay.)
+    private func prefetch() {
+        prefetched = nil
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.session.isActive, !self.hud.isVisible, !self.isBusy(),
+                      let windows = try? self.safari.windows() else { return }
+                self.prefetched = (windows, (try? self.safari.tabs()) ?? [:], Self.now)
+            }
+        }
     }
 
     /// Lists the windows (and tabs) again after a tab was closed, keeping the selection on that window.
@@ -107,12 +164,21 @@ final class HUDController {
     }
 
     /// The HUD's items for the current windows; the window list also shows the tabs.
-    private func makeState() throws -> HUDState {
-        let windows = try SafariController.windows()
+    private func makeState(usePrefetched: Bool = false) throws -> HUDState {
+        let windows: [SafariWindow]
+        let tabs: [Int: WindowTabs]
+        if usePrefetched, let prefetched, Self.now - prefetched.at < 2 {
+            (windows, tabs) = (prefetched.windows, prefetched.tabs)
+        } else {
+            windows = try safari.windows()
+            tabs = (try? safari.tabs()) ?? [:]
+        }
+        prefetched = nil
         self.windows = windows
         let profiles = knownProfiles()
-        guard settings.hudMode == .windows else { return HUDState.profiles(windows: windows, profiles: profiles) }
-        return HUDState.windows(windows: windows, profiles: profiles, tabs: (try? SafariController.tabs()) ?? [:])
+        return settings.hudMode == .windows
+            ? HUDState.windows(windows: windows, profiles: profiles, tabs: tabs)
+            : HUDState.profiles(windows: windows, profiles: profiles, tabs: tabs)
     }
 
     func cancel() {
@@ -130,6 +196,7 @@ final class HUDController {
         case .moveSelection(let offset): update { $0.step(by: offset) }
         case .switchNow:
             stopTimer()
+            prefetched = nil
             onVisibilityChange()
             onSwitchNow(outsideSafari)
         case .confirm: close(confirm: true)
@@ -148,7 +215,7 @@ final class HUDController {
     private func show(extraPresses: Int) {
         guard !hud.isVisible else { return }
         do {
-            var state = try makeState()
+            var state = try makeState(usePrefetched: true)
             state.step(by: extraPresses)
             self.state = state
             let profiles = knownProfiles()
@@ -161,7 +228,7 @@ final class HUDController {
                 self?.close(confirm: true)
             }
             setPendingClose(nil)
-            let frame = windows.first.flatMap { try? SafariController.bounds(windowID: $0.id) }
+            let frame = windows.first.flatMap { try? safari.bounds(windowID: $0.id) }
             hud.show(state, near: frame)
             onVisibilityChange()
         } catch {
@@ -180,6 +247,7 @@ final class HUDController {
         setPendingClose(nil)
         hud.hide()
         state = nil
+        prefetched = nil
         self.windows = []
         onVisibilityChange()
         guard confirm, let selected else { return }

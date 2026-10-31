@@ -4,12 +4,13 @@ import SwitcherCore
 
 /// The settings panes, in toolbar order.
 enum SettingsPane: Int, CaseIterable {
-    case profiles, general, shortcuts, links, about
+    case profiles, general, switcher, shortcuts, links, about
 
     var title: String {
         switch self {
         case .profiles: String(localized: "Profiles")
         case .general: String(localized: "General")
+        case .switcher: String(localized: "Switcher")
         case .shortcuts: String(localized: "Shortcuts")
         case .links: String(localized: "Links")
         case .about: String(localized: "About")
@@ -20,6 +21,7 @@ enum SettingsPane: Int, CaseIterable {
         switch self {
         case .profiles: "person.2"
         case .general: "gearshape"
+        case .switcher: "rectangle.3.group"
         case .shortcuts: "keyboard"
         case .links: "link"
         case .about: "info.circle"
@@ -32,7 +34,8 @@ enum SettingsPane: Int, CaseIterable {
         let content: AnyView = switch self {
         case .profiles: AnyView(ProfileSettings(controller: controller, settings: settings))
         case .general: AnyView(GeneralSettings(controller: controller, settings: settings))
-        case .shortcuts: AnyView(ShortcutSettings(controller: controller, settings: settings))
+        case .switcher: AnyView(ShortcutSettings(controller: controller, settings: settings, switcher: true))
+        case .shortcuts: AnyView(ShortcutSettings(controller: controller, settings: settings, switcher: false))
         case .links: AnyView(LinkSettings(controller: controller, settings: settings))
         case .about: AnyView(AboutSettings(controller: controller))
         }
@@ -111,20 +114,6 @@ private struct GeneralSettings: View {
                 Picker("Switch shortcut outside Safari", selection: $settings.outsideSafariAction) {
                     ForEach(OutsideSafariAction.allCases) { Text($0.title).tag($0) }
                 }
-            }
-            Section {
-                Picker("Show", selection: $settings.hudMode) {
-                    ForEach(HUDMode.allCases) { Text($0.title).tag($0) }
-                }
-                LabeledContent("Delay before it appears") {
-                    HStack {
-                        Slider(value: $settings.hudDelay, in: 0...0.6, step: 0.05)
-                        Text("\(Int(settings.hudDelay * 1000)) ms").monospacedDigit().frame(width: 60, alignment: .trailing)
-                    }
-                }
-                .disabled(settings.hudMode == .off)
-            } header: {
-                Text("Switcher (hold the modifier of the switch shortcut)")
             }
             Section("General") {
                 Toggle("Launch at login", isOn: Binding(
@@ -229,10 +218,45 @@ private struct ProfileSettings: View {
 private struct ShortcutSettings: View {
     @ObservedObject var controller: AppController
     @ObservedObject var settings: AppSettings
+    /// The switcher's pane (how it looks, its keys) rather than the Safari shortcuts.
+    let switcher: Bool
     @State private var note: String?
 
     var body: some View {
         Form {
+            if switcher { switcherSections } else { safariSections }
+            if let note {
+                Section { Text(note).foregroundStyle(.orange) }
+            }
+        }
+    }
+
+    @ViewBuilder private var switcherSections: some View {
+        Section {
+            Picker("Show", selection: $settings.hudMode) {
+                ForEach(HUDMode.allCases) { Text($0.title).tag($0) }
+            }
+            LabeledContent("Delay before it appears") {
+                HStack {
+                    Slider(value: $settings.hudDelay, in: 0...0.6, step: 0.05)
+                    Text("\(Int(settings.hudDelay * 1000)) ms").monospacedDigit().frame(width: 60, alignment: .trailing)
+                }
+            }
+            .disabled(settings.hudMode == .off)
+        } header: {
+            Text("Switcher (hold the modifier of the switch shortcut)")
+        }
+        Section {
+            ForEach(ShortcutAction.allCases.filter { !$0.scopes.contains(.safari) && $0.isConfigurable }) { row($0) }
+        } header: {
+            Text("While the switcher is open")
+        } footer: {
+            Text("The switch shortcut also selects the next profile (in the window list, the next window), and with ⇧ the previous one. In the window list, next / previous go through the window's tabs. Release the modifier to confirm.")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var safariSections: some View {
             Section {
                 ForEach(ShortcutAction.allCases.filter { $0.scopes.contains(.safari) }) { row($0) }
             } header: {
@@ -242,17 +266,21 @@ private struct ShortcutSettings: View {
                     .foregroundStyle(.secondary)
             }
             Section {
-                ForEach(ShortcutAction.allCases.filter { !$0.scopes.contains(.safari) && $0.isConfigurable }) { row($0) }
+                Picker("Go to profile 1…9", selection: $settings.profileNumberModifier) {
+                    ForEach(NumberModifier.allCases) { Text($0.title).tag($0) }
+                }
+                Picker("Move tab to profile 1…9", selection: $settings.moveTabNumberModifier) {
+                    ForEach(NumberModifier.allCases) { Text($0.title).tag($0) }
+                }
+                ForEach(controller.numberedHotKeyFailures, id: \.self) { failure in
+                    Text(failure).foregroundStyle(.red)
+                }
             } header: {
-                Text("While the switcher is open")
+                Text("Profiles by number")
             } footer: {
-                Text("The switch shortcut also selects the next profile (in the window list, the next window), and with ⇧ the previous one. In the window list, next / previous go through the window's tabs. Release the modifier to confirm.")
+                Text("The number is the profile's place in the list on the Profiles tab. Only while Safari is in front; keys an action above uses are left to it.")
                     .foregroundStyle(.secondary)
             }
-            if let note {
-                Section { Text(note).foregroundStyle(.orange) }
-            }
-        }
     }
 
     private func row(_ action: ShortcutAction) -> some View {
@@ -301,6 +329,8 @@ private struct ShortcutSettings: View {
 
 private struct AboutSettings: View {
     @ObservedObject var controller: AppController
+    @StateObject private var liveCheck = LiveCheck()
+    @State private var settingsNote: String?
 
     var body: some View {
         Form {
@@ -332,6 +362,43 @@ private struct AboutSettings: View {
                 }
             }
             Section {
+                Button("Check how it works") { Task { await liveCheck.run() } }
+                    .disabled(liveCheck.isRunning)
+                ForEach(liveCheck.steps) { step in
+                    LabeledContent {
+                        Text(step.detail).foregroundStyle(.secondary).lineLimit(2).textSelection(.enabled)
+                    } label: {
+                        HStack(spacing: 6) {
+                            switch step.passed {
+                            case true?: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                            case false?: Image(systemName: "xmark.octagon.fill").foregroundStyle(.red)
+                            case nil: ProgressView().controlSize(.small)
+                            }
+                            Text(step.name)
+                        }
+                    }
+                }
+            } header: {
+                Text("Check")
+            } footer: {
+                Text("Tries what needs Accessibility on Safari: profile and private windows from the File menu, moving a tab to a new window, raising a window. Opens and closes its own temporary windows; yours stay as they are.")
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                HStack {
+                    Button("Export…") { exportSettings() }
+                    Button("Import…") { importSettings() }
+                    if let settingsNote {
+                        Text(settingsNote).foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Settings file")
+            } footer: {
+                Text("Profiles, shortcuts, link rules, colors and options, to back up or move to another Mac.")
+                    .foregroundStyle(.secondary)
+            }
+            Section {
                 Button("Save Safari diagnostics") { controller.writeDiagnostics() }
             } header: {
                 Text("Diagnostics")
@@ -347,6 +414,33 @@ private struct AboutSettings: View {
         }
         .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
             controller.refreshPermissions()
+        }
+    }
+
+    private func exportSettings() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "Safari Profile Switcher.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try controller.settings.exportData().write(to: url, options: .atomic)
+            settingsNote = String(localized: "Exported")
+        } catch {
+            controller.fail(error.localizedDescription)
+        }
+    }
+
+    private func importSettings() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try controller.settings.importData(Data(contentsOf: url))
+            controller.refreshProfiles()
+            settingsNote = String(localized: "Imported")
+        } catch {
+            controller.fail(error.localizedDescription)
+            settingsNote = error.localizedDescription
         }
     }
 

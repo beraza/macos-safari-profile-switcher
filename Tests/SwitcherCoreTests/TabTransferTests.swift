@@ -55,6 +55,15 @@ final class TabTransferTests: XCTestCase {
         XCTAssertEqual(try plan.get().target, .window(id: 3))
     }
 
+    func testExplicitProfileWinsOverRules() {
+        let windows = [window(1, "Личное — Jira"), window(2, "Работа — Mail"), window(3, "Клиент — CRM")]
+        let plan = TabTransfer.plan(tab: tab("Личное — Jira"), windows: windows, profiles: [personal, work],
+                                    preferredProfile: work, explicitProfile: "Клиент")
+        XCTAssertEqual(try plan.get().target, .window(id: 3))
+        XCTAssertEqual(TabTransfer.plan(tab: tab("Личное — Jira"), windows: windows, profiles: [personal, work],
+                                        explicitProfile: personal), .failure(.alreadyInProfile))
+    }
+
     func testRejectsStartPageAndBadPair() {
         XCTAssertEqual(TabTransfer.plan(tab: tab("Личное — x", url: "favorites://"), windows: [], profiles: [personal, work]),
                        .failure(.nothingToMove))
