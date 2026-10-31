@@ -58,17 +58,13 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         let settings = controller.settings
         let windows = SafariController.runningApp == nil ? nil : Result { try SafariController.windows() }
         controller.updateProfileWarnings()
-        menu.addItem(disabled(controller.profilesSummary))
-        if let shortcut = settings.shortcuts[.switchProfile] {
-            menu.addItem(disabled(String(localized: "Shortcut: \(shortcut.displayString)")))
+        // Only what needs attention goes above the windows.
+        var notes = controller.profileWarnings.map(\.message) + [controller.lastError].compactMap { $0 }
+        if settings.switchProfiles.count < 2 { notes.insert(String(localized: "Choose profiles in Settings"), at: 0) }
+        for note in notes {
+            menu.addItem(disabled("⚠️ \(note)"))
         }
-        if let error = controller.lastError {
-            menu.addItem(disabled("⚠️ \(error)"))
-        }
-        for warning in controller.profileWarnings {
-            menu.addItem(disabled("⚠️ \(warning.message)"))
-        }
-        menu.addItem(.separator())
+        if !notes.isEmpty { menu.addItem(.separator()) }
         addWindows(windows, to: menu)
         if let transfer = controller.lastTransfer {
             menu.addItem(.separator())

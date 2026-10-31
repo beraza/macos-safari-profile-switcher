@@ -102,11 +102,6 @@ final class AppController: ObservableObject {
         updateCurrentProfile()
     }
 
-    var profilesSummary: String {
-        settings.switchProfiles.count < 2 ? String(localized: "Choose profiles in Settings")
-            : settings.switchProfiles.map(ProfileMatcher.displayName).joined(separator: " → ")
-    }
-
     /// Configured and detected profile names, without duplicates, and Private Browsing.
     var knownProfiles: [String] {
         ProfileMatcher.cleaned(settings.switchProfiles + detectedProfiles + [ProfileMatcher.privateProfile])

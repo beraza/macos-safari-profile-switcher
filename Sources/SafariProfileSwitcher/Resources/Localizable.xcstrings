@@ -1163,16 +1163,6 @@
         }
       }
     },
-    "Shortcut: %@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Шорткат: %@"
-          }
-        }
-      }
-    },
     "Shortcuts": {
       "localizations": {
         "ru": {
