@@ -14,12 +14,30 @@ public struct HUDItem: Equatable, Sendable {
     public let profile: String?
     /// Tabs in the window (0 for a profile without windows).
     public let count: Int
+    /// Tab titles, if listed (the window list shows them).
+    public let tabs: [String]
+    /// The window's current tab, 0-based.
+    public let currentTab: Int
 
-    public init(target: Target, title: String, profile: String?, count: Int) {
+    public init(target: Target, title: String, profile: String?, count: Int, tabs: [String] = [], currentTab: Int = 0) {
         self.target = target
         self.title = title
         self.profile = profile
         self.count = count
+        self.tabs = tabs
+        self.currentTab = min(max(currentTab, 0), max(tabs.count - 1, 0))
+    }
+}
+
+/// The tabs of a window, as Safari lists them.
+public struct WindowTabs: Equatable, Sendable {
+    public let titles: [String]
+    /// 0-based.
+    public let current: Int
+
+    public init(titles: [String], current: Int) {
+        self.titles = titles
+        self.current = current
     }
 }
 
@@ -49,15 +67,29 @@ public struct HUDState: Equatable, Sendable {
     public let items: [HUDItem]
     /// Columns of the profile layout; empty for the plain window list.
     public let groups: [HUDGroup]
-    public private(set) var selection: Int
+    public private(set) var selection: Int {
+        didSet { tabSelection = selected?.currentTab ?? 0 }
+    }
+    /// The selected tab of the selected window (its current tab until moved).
+    public private(set) var tabSelection: Int
 
     public init(items: [HUDItem], groups: [HUDGroup] = [], selection: Int) {
         self.items = items
         self.groups = groups
         self.selection = items.isEmpty ? 0 : min(max(selection, 0), items.count - 1)
+        tabSelection = items.isEmpty ? 0 : items[self.selection].currentTab
     }
 
     public var selected: HUDItem? { items.indices.contains(selection) ? items[selection] : nil }
+
+    /// The selected tab, if the selected window's tabs are listed.
+    public var selectedTab: Int? { selected?.tabs.isEmpty == false ? tabSelection : nil }
+
+    /// Selects the window with `id` (if listed) and its tab `tab`, clamped to the tabs it has.
+    public mutating func select(windowID id: Int, tab: Int) {
+        if let index = items.firstIndex(where: { $0.target == .window(id: id) }) { selection = index }
+        if let tabs = selected?.tabs, !tabs.isEmpty { tabSelection = min(max(tab, 0), tabs.count - 1) }
+    }
 
     /// Index of the group holding the selection.
     public var selectedGroup: Int? { groups.firstIndex { $0.items.contains(selection) } }
@@ -70,7 +102,13 @@ public struct HUDState: Equatable, Sendable {
 
     public mutating func step(_ direction: Direction) {
         guard let group = selectedGroup else {
-            move(by: direction == .next || direction == .down ? 1 : -1)
+            // The window list: up / down between windows, next / previous between the window's tabs.
+            let forward = direction == .next || direction == .down
+            if direction == .next || direction == .previous, let tabs = selected?.tabs, tabs.count > 1 {
+                tabSelection = Self.wrap(tabSelection + (forward ? 1 : -1), count: tabs.count)
+            } else {
+                move(by: forward ? 1 : -1)
+            }
             return
         }
         switch direction {
@@ -85,9 +123,12 @@ public struct HUDState: Equatable, Sendable {
         }
     }
 
-    /// Steps `count` times forward (positive) or back (negative).
+    /// Steps `count` times forward (positive) or back (negative), as the switch shortcut does: to the next
+    /// profile in the profile layout, to the next window in the window list.
     public mutating func step(by count: Int) {
-        for _ in 0..<abs(count) { step(count > 0 ? .next : .previous) }
+        let forward: Direction = groups.isEmpty ? .down : .next
+        let back: Direction = groups.isEmpty ? .up : .previous
+        for _ in 0..<abs(count) { step(count > 0 ? forward : back) }
     }
 
     public mutating func select(_ index: Int) {
@@ -130,13 +171,15 @@ public struct HUDState: Equatable, Sendable {
     /// One row per window, front to back, then a "new window" row for each profile without windows;
     /// the second (previous) window selected, or the first new window row if there is only one window.
     /// (Without windows, the first row.)
-    public static func windows(windows: [SafariWindow], profiles: [String]) -> HUDState {
+    /// - Parameter tabs: tabs by window id, shown in the window's row (left out: just the tab count).
+    public static func windows(windows: [SafariWindow], profiles: [String], tabs: [Int: WindowTabs] = [:]) -> HUDState {
         let profiles = ProfileMatcher.cleaned(profiles)
         let items = windows.map { window in
             let profile = ProfileMatcher.profile(of: window, among: profiles)
             return HUDItem(
                 target: .window(id: window.id), title: pageTitle(window, profile: profile),
-                profile: profile, count: window.tabCount)
+                profile: profile, count: window.tabCount,
+                tabs: tabs[window.id]?.titles ?? [], currentTab: tabs[window.id]?.current ?? 0)
         }
         let open = Set(items.compactMap(\.profile))
         let new = profiles.filter { !open.contains($0) }.map { profile in

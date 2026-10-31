@@ -25,7 +25,7 @@ enum Main {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: AppController!
     private var statusMenu: StatusMenu!
-    private var settingsWindow: NSWindow?
+    private var settingsWindow: SettingsWindowController?
 
     /// The link handler has to be in place before launch finishes: the link that launched the app arrives then.
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -65,19 +65,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showSettings() {
         if settingsWindow == nil {
-            let window = NSWindow(contentViewController: NSHostingController(
-                rootView: SettingsView(controller: controller, settings: controller.settings)))
-            window.title = "Safari Profile Switcher"
-            window.styleMask = [.titled, .closable, .miniaturizable]
-            window.isReleasedWhenClosed = false
-            window.center()
-            settingsWindow = window
+            settingsWindow = SettingsWindowController(controller: controller)
         }
-        NSApp.activate()
-        settingsWindow?.makeKeyAndOrderFront(nil)
+        settingsWindow?.show()
     }
 
-    /// Not shown (the app has no Dock icon), but gives the settings window ⌘W, ⌘Q and copy/paste.
+    /// Shown while the settings window is open (the app is a regular one then); gives it ⌘W, ⌘Q and copy/paste.
     private static func makeMainMenu() -> NSMenu {
         let main = NSMenu()
         let app = NSMenu()

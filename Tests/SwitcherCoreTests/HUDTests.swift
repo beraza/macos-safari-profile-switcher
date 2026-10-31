@@ -71,6 +71,29 @@ final class HUDTests: XCTestCase {
         XCTAssertEqual(state.selection, 2)
     }
 
+    func testWindowListTabs() {
+        let windows = [window(1, "Работа — Jira", tabs: 3), window(2, "Личное — Mail", tabs: 2)]
+        let tabs = [1: WindowTabs(titles: ["Jira", "Docs", "CI"], current: 0),
+                    2: WindowTabs(titles: ["Mail", "News"], current: 1)]
+        var state = HUDState.windows(windows: windows, profiles: profiles, tabs: tabs)
+        XCTAssertEqual(state.selected?.target, .window(id: 2))
+        XCTAssertEqual(state.selectedTab, 1, "starts on the window's current tab")
+        state.step(.next)
+        XCTAssertEqual(state.selectedTab, 0, "next / previous go through the tabs, wrapping")
+        state.step(.up)
+        XCTAssertEqual(state.selected?.target, .window(id: 1))
+        XCTAssertEqual(state.selectedTab, 0)
+        state.step(.previous)
+        XCTAssertEqual(state.selectedTab, 2)
+        state.step(by: 1)
+        XCTAssertEqual(state.selected?.target, .window(id: 2), "the switch shortcut goes to the next window")
+        state.select(windowID: 1, tab: 7)
+        XCTAssertEqual(state.selectedTab, 2, "clamped to the tabs left")
+        state.step(.down)
+        state.step(.down)
+        XCTAssertNil(state.selectedTab, "a new window row has no tabs")
+    }
+
     func testWindowListOffersNewWindowsForProfilesWithout() {
         let state = HUDState.windows(windows: [window(1, "Личное — A")], profiles: profiles)
         XCTAssertEqual(state.items.map(\.target), [.window(id: 1), .profile("Работа"), .profile("Клиент")])

@@ -67,6 +67,7 @@ extension ShortcutAction {
         case .hudPrevious: String(localized: "Switcher: previous profile")
         case .hudUp: String(localized: "Switcher: window above")
         case .hudDown: String(localized: "Switcher: window below")
+        case .hudCloseTab: String(localized: "Switcher: close the tab (press twice)")
         case .hudCancel: String(localized: "Switcher: cancel")
         case .switchBack: String(localized: "Switcher: back")
         }
@@ -85,6 +86,7 @@ extension ShortcutAction {
         case .hudPrevious: Shortcut(keyCode: kVK_LeftArrow, modifiers: .option, keyLabel: "←")
         case .hudUp: Shortcut(keyCode: kVK_UpArrow, modifiers: .option, keyLabel: "↑")
         case .hudDown: Shortcut(keyCode: kVK_DownArrow, modifiers: .option, keyLabel: "↓")
+        case .hudCloseTab: Shortcut(keyCode: kVK_ANSI_W, modifiers: .option, keyLabel: "W")
         case .hudCancel: Shortcut(keyCode: kVK_Escape, modifiers: .option, keyLabel: "⎋")
         case .switchBack: nil
         }

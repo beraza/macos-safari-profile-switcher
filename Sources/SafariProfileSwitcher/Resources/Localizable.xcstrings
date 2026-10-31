@@ -93,6 +93,16 @@
         }
       }
     },
+    "About": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "О программе"
+          }
+        }
+      }
+    },
     "Accessibility": {
       "localizations": {
         "ru": {
@@ -349,6 +359,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Закрывать окно, если в нём только стартовая страница"
+          }
+        }
+      }
+    },
+    "Close? ⌥W": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть? ⌥W"
           }
         }
       }
@@ -933,6 +953,16 @@
         }
       }
     },
+    "Profiles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профили"
+          }
+        }
+      }
+    },
     "Profiles and their windows": {
       "localizations": {
         "ru": {
@@ -1263,6 +1293,16 @@
         }
       }
     },
+    "Switcher: close the tab (press twice)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переключатель: закрыть вкладку (нажать дважды)"
+          }
+        }
+      }
+    },
     "Switcher: next profile": {
       "localizations": {
         "ru": {
@@ -1353,12 +1393,12 @@
         }
       }
     },
-    "The switch shortcut also selects the next profile, and with ⇧ the previous one. Release the modifier to confirm.": {
+    "The switch shortcut also selects the next profile (in the window list, the next window), and with ⇧ the previous one. In the window list, next / previous go through the window's tabs. Release the modifier to confirm.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Шорткат переключения тоже выбирает следующий профиль, а с ⇧ предыдущий. Отпустите модификатор, чтобы подтвердить."
+            "value": "Шорткат переключения тоже выбирает следующий профиль (в списке окон — следующее окно), а с ⇧ предыдущий. В списке окон «следующий / предыдущий» переходят по вкладкам окна. Отпустите модификатор, чтобы подтвердить."
           }
         }
       }
@@ -1419,6 +1459,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Разворачивать ссылки-обёртки (Outlook Safe Links, Facebook, Google, VK)"
+          }
+        }
+      }
+    },
+    "Version %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия %@"
           }
         }
       }

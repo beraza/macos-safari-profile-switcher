@@ -68,9 +68,9 @@ enum SelfTest {
             LinkRule(pattern: "*.ktalk.ru", profile: "", targetApp: "kontur.talk", targetScheme: "ktalk"),
         ]
         let controller = AppController(customSettings: settings, promptForAccessibility: false)
-        for tab in 0..<4 {
-            let window = NSWindow(contentViewController: NSHostingController(
-                rootView: SettingsView(controller: controller, settings: settings, tab: tab)))
+        for pane in SettingsPane.allCases {
+            let tab = pane.rawValue
+            let window = NSWindow(contentViewController: pane.viewController(controller: controller, settings: settings))
             window.setFrameOrigin(NSPoint(x: -5000, y: -5000))
             window.orderFront(nil)
             pause(0.5)
@@ -256,7 +256,8 @@ enum SelfTest {
             ?? FileManager.default.temporaryDirectory
         controller.hud.model.look = { $0.map(controller.look(for:)) ?? .unknown }
         for (name, state) in [("profiles", profilesState),
-                              ("windows", HUDState.windows(windows: windows, profiles: controller.knownProfiles))] {
+                              ("windows", HUDState.windows(windows: windows, profiles: controller.knownProfiles,
+                                                           tabs: (try? SafariController.tabs()) ?? [:]))] {
             controller.hud.show(state, near: nil)
             pause(0.3)
             let file = directory.appendingPathComponent("hud-\(name).png")
@@ -323,6 +324,10 @@ enum SelfTest {
         let tab = try SafariController.currentTab()
         check(tab.windowID == a && tab.index == 2 && tab.tabCount == 2 && tab.url.hasSuffix("-b"),
               "openTab + currentTabInfo: \(tab)")
+        let tabsOfA = try SafariController.tabs()[a]
+        check(tabsOfA?.titles.count == 2 && tabsOfA?.current == 1, "listTabs: \(String(describing: tabsOfA))")
+        try SafariController.selectTab(index: 1, windowID: a)
+        check(try SafariController.tabs()[a]?.current == 0, "selectTab: first tab is current")
 
         let b = Int(try SafariController.call("makeDocument", NSAppleEventDescriptor(string: base + "-c")).int32Value)
         defer { try? SafariController.close(windowID: b) }

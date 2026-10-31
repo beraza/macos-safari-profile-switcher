@@ -7,8 +7,11 @@ import SwitcherCore
 final class SwitcherHUD {
     final class Model: ObservableObject {
         @Published var state = HUDState(items: [], selection: 0)
+        /// The close shortcut was pressed once on the selected tab; the next press closes it.
+        @Published var pendingClose = false
         var look: (String?) -> ProfileLook = { _ in .unknown }
-        var onClick: (Int) -> Void = { _ in }
+        /// An item was clicked, or one of its tabs (0-based).
+        var onClick: (Int, Int?) -> Void = { _, _ in }
     }
 
     let model = Model()
@@ -84,14 +87,24 @@ private struct HUDView: View {
     @ViewBuilder private var content: some View {
         let state = model.state
         if state.groups.isEmpty {
+            let showTabs = state.items.contains { !$0.tabs.isEmpty }
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(state.items.enumerated().prefix(14)), id: \.offset) { index, item in
-                    WindowRow(item: item, look: model.look(item.profile), showProfile: true,
-                              selected: index == state.selection)
-                        .onTapGesture { model.onClick(index) }
+                    let selected = index == state.selection
+                    HStack(spacing: 8) {
+                        WindowRow(item: item, look: model.look(item.profile), showProfile: true,
+                                  selected: false, showCount: !showTabs)
+                            .frame(width: showTabs ? 250 : 440, alignment: .leading)
+                            .onTapGesture { model.onClick(index, nil) }
+                        if showTabs {
+                            TabStrip(item: item, selectedTab: selected ? state.selectedTab : nil,
+                                     pendingClose: selected && model.pendingClose) { model.onClick(index, $0) }
+                        }
+                    }
+                    .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Color.accentColor.opacity(0.35) : .clear))
                 }
             }
-            .frame(width: 440)
+            .frame(width: showTabs ? 780 : 440, alignment: .leading)
         } else {
             HStack(alignment: .top, spacing: 10) {
                 ForEach(Array(state.groups.enumerated()), id: \.offset) { groupIndex, group in
@@ -130,7 +143,7 @@ private struct ProfileColumn: View {
             ForEach(rows, id: \.self) { index in
                 let item = model.state.items[index]
                 WindowRow(item: item, look: look, showProfile: false, selected: index == model.state.selection)
-                    .onTapGesture { model.onClick(index) }
+                    .onTapGesture { model.onClick(index, nil) }
             }
             if hidden > 0 {
                 Text("+\(hidden)").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 10)
@@ -157,11 +170,66 @@ private struct ProfileColumn: View {
     private var hidden: Int { group.items.count - rows.count }
 }
 
+/// The tabs of a window as chips: the current tab in bold, the selected one highlighted (red while the
+/// close shortcut waits for its second press). Long lists show a slice around the selection.
+private struct TabStrip: View {
+    let item: HUDItem
+    let selectedTab: Int?
+    let pendingClose: Bool
+    let onClick: (Int) -> Void
+
+    private static let visible = 4
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(slice, id: \.self) { index in
+                chip(index)
+                    .onTapGesture { onClick(index) }
+            }
+            if item.tabs.count > slice.count {
+                Text("+\(item.tabs.count - slice.count)").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.trailing, 8)
+    }
+
+    private func chip(_ index: Int) -> some View {
+        let selected = index == selectedTab
+        let closing = selected && pendingClose
+        let title = item.tabs[index].isEmpty ? String(localized: "Start Page") : item.tabs[index]
+        return HStack(spacing: 3) {
+            if closing { Image(systemName: "xmark.circle.fill") }
+            Text(closing ? String(localized: "Close? ⌥W") : title)
+                .fontWeight(index == item.currentTab ? .semibold : .regular)
+                .lineLimit(1)
+        }
+        .font(.caption)
+        .foregroundStyle(selected ? Color.white : Color.primary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .frame(maxWidth: 112)
+        .background(RoundedRectangle(cornerRadius: 6).fill(
+            closing ? Color.red : selected ? Color.accentColor : Color.primary.opacity(index == item.currentTab ? 0.14 : 0.07)))
+        .help(item.tabs[index])
+    }
+
+    /// Up to `visible` tabs around the selected (or current) one.
+    private var slice: [Int] {
+        let count = item.tabs.count
+        guard count > Self.visible else { return Array(0..<count) }
+        let focus = selectedTab ?? item.currentTab
+        let start = min(max(0, focus - Self.visible / 2), count - Self.visible)
+        return Array(start..<start + Self.visible)
+    }
+}
+
 private struct WindowRow: View {
     let item: HUDItem
     let look: ProfileLook
     let showProfile: Bool
     let selected: Bool
+    var showCount = true
 
     var body: some View {
         HStack(spacing: 8) {
@@ -187,7 +255,7 @@ private struct WindowRow: View {
                 }
             }
             Spacer(minLength: 6)
-            if item.count > 1 {
+            if showCount && item.count > 1 {
                 Text("\(item.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
         }

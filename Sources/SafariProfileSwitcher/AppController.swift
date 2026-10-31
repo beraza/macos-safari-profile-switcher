@@ -49,8 +49,8 @@ final class AppController: ObservableObject {
             // Like a quick ⌘⇥: from another app, just go to Safari; in Safari, switch the profile.
             if outsideSafari { self?.showLastWindow() } else { self?.perform { try await $0.switchProfile() } }
         }
-        hudController.onActivate = { [weak self] item, windows in
-            self?.perform { try await $0.activate(item, windows: windows) }
+        hudController.onActivate = { [weak self] item, windows, tab in
+            self?.perform { try await $0.activate(item, windows: windows, tab: tab) }
         }
         hudController.onVisibilityChange = { [weak self] in self?.updateHotKeyRegistration() }
         hudController.onError = { [weak self] in self?.fail($0) }
@@ -182,6 +182,8 @@ final class AppController: ObservableObject {
             hudController.step(.up)
         case .hudDown:
             hudController.step(.down)
+        case .hudCloseTab:
+            hudController.closeSelectedTab()
         case .switchBack:
             hudController.pressBack()
         case .hudCancel:
@@ -454,7 +456,8 @@ final class AppController: ObservableObject {
     // MARK: - Switcher HUD
 
     /// Shows the HUD's choice: a window, or a profile's front-most window (a new one if it has none).
-    func activate(_ item: HUDItem, windows: [SafariWindow]) async throws {
+    /// - Parameter tab: a tab (0-based) chosen in the window's row, to make current.
+    func activate(_ item: HUDItem, windows: [SafariWindow], tab: Int? = nil) async throws {
         var windows = windows
         cycle = nil
         if SafariController.runningApp == nil {
@@ -473,6 +476,9 @@ final class AppController: ObservableObject {
             if target == nil {
                 _ = try await openNewWindow(profile: profile, replacing: front?.id)
             }
+        }
+        if let target, let tab, tab != item.currentTab {
+            try SafariController.selectTab(index: tab + 1, windowID: target.id)
         }
         if let target, target.id != front?.id {
             if settings.alignExistingWindows, let front, profile(of: front) != profile(of: target) {

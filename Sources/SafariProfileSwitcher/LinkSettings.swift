@@ -64,7 +64,6 @@ struct LinkSettings: View {
                 Text(testResult).foregroundStyle(.secondary).textSelection(.enabled)
             }
         }
-        .formStyle(.grouped)
     }
 
     private var testResult: String {

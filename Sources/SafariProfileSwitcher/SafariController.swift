@@ -65,6 +65,28 @@ enum SafariController {
             end timeout
         end listWindows
 
+        on listTabs()
+            with timeout of 5 seconds
+                tell application "Safari"
+                    set out to {}
+                    repeat with w in windows
+                        try
+                            if visible of w or miniaturized of w then
+                                set end of out to {id of w, index of current tab of w, name of every tab of w}
+                            end if
+                        end try
+                    end repeat
+                    return out
+                end tell
+            end timeout
+        end listTabs
+
+        on selectTab(wid, idx)
+            with timeout of 5 seconds
+                tell application "Safari" to set current tab of window id wid to tab idx of window id wid
+            end timeout
+        end selectTab
+
         on windowInfo(wid)
             with timeout of 5 seconds
                 tell application "Safari"
@@ -239,6 +261,28 @@ enum SafariController {
                 isPrivate: ProfileMatcher.isPrivate(title: title, realProfiles: realProfiles)
             )
         }
+    }
+
+    /// Tab titles and the current tab of each window, by window id.
+    static func tabs() throws -> [Int: WindowTabs] {
+        guard runningApp != nil else { return [:] }
+        let list = try call("listTabs")
+        guard list.numberOfItems > 0 else { return [:] }
+        var result: [Int: WindowTabs] = [:]
+        for index in 1...list.numberOfItems {
+            guard let item = list.atIndex(index), item.numberOfItems == 3,
+                  let id = item.atIndex(1)?.int32Value, let current = item.atIndex(2)?.int32Value,
+                  let names = item.atIndex(3)
+            else { continue }
+            let titles = names.numberOfItems == 0 ? [] : (1...names.numberOfItems).map { names.atIndex($0)?.stringValue ?? "" }
+            result[Int(id)] = WindowTabs(titles: titles, current: Int(current) - 1)
+        }
+        return result
+    }
+
+    /// Makes a tab (1-based) the window's current one.
+    static func selectTab(index: Int, windowID: Int) throws {
+        try call("selectTab", .int(windowID), .int(index))
     }
 
     /// The current tab of the front window.

@@ -9,8 +9,9 @@ final class HUDController {
     var knownProfiles: () -> [String] = { [] }
     /// Released before the HUD appeared; `true` if the press came while another app was in front.
     var onSwitchNow: (_ outsideSafari: Bool) -> Void = { _ in }
-    /// The selection was confirmed; the windows are those listed when the HUD opened.
-    var onActivate: (HUDItem, [SafariWindow]) -> Void = { _, _ in }
+    /// The selection was confirmed: the item, the windows listed when the HUD opened, and the tab chosen
+    /// in the window's row (0-based), if tabs are shown.
+    var onActivate: (HUDItem, [SafariWindow], Int?) -> Void = { _, _, _ in }
     /// A session started or ended, or the HUD appeared: the HUD's shortcuts are registered from the first
     /// press on (so ⌥⇧⇥ goes back even before the HUD shows), and the Safari ones only without a session.
     var onVisibilityChange: () -> Void = {}
@@ -25,6 +26,9 @@ final class HUDController {
     private var outsideSafari = false
     /// Safari windows when the HUD opened, front-most first.
     private var windows: [SafariWindow] = []
+    /// The tab the close shortcut was pressed on once, and when; a second press soon after closes it.
+    private var pendingClose: (windowID: Int, tab: Int, at: Double)?
+    private static let closeConfirmation = 2.0
 
     init(settings: AppSettings) {
         self.settings = settings
@@ -56,10 +60,59 @@ final class HUDController {
     }
 
     func step(_ direction: HUDState.Direction) {
+        update { $0.step(direction) }
+    }
+
+    /// Closes the selected tab on the second press (within two seconds); the first press marks it.
+    func closeSelectedTab() {
+        guard hud.isVisible, let state, case .window(let id)? = state.selected?.target, let tab = state.selectedTab
+        else { return }
+        if let pending = pendingClose, pending.windowID == id, pending.tab == tab,
+           Self.now - pending.at < Self.closeConfirmation {
+            setPendingClose(nil)
+            do {
+                try SafariController.closeTab(index: tab + 1, windowID: id)
+                reload(selecting: id, tab: tab)
+            } catch {
+                onError(error.localizedDescription)
+            }
+        } else {
+            setPendingClose((id, tab, Self.now))
+        }
+    }
+
+    private func update(_ change: (inout HUDState) -> Void) {
         guard hud.isVisible, var state else { return }
-        state.step(direction)
+        change(&state)
+        self.state = state
+        setPendingClose(nil)
+        hud.update(state)
+    }
+
+    private func setPendingClose(_ pending: (windowID: Int, tab: Int, at: Double)?) {
+        pendingClose = pending
+        hud.model.pendingClose = pending != nil
+    }
+
+    /// Lists the windows (and tabs) again after a tab was closed, keeping the selection on that window.
+    private func reload(selecting windowID: Int, tab: Int) {
+        guard var state = try? makeState() else { return }
+        state.select(windowID: windowID, tab: tab)
+        if !state.items.contains(where: { $0.target == .window(id: windowID) }) {
+            // The window closed with its last tab: stay at the same place in the list.
+            state.select(min(self.state?.selection ?? 0, state.items.count - 1))
+        }
         self.state = state
         hud.update(state)
+    }
+
+    /// The HUD's items for the current windows; the window list also shows the tabs.
+    private func makeState() throws -> HUDState {
+        let windows = try SafariController.windows()
+        self.windows = windows
+        let profiles = knownProfiles()
+        guard settings.hudMode == .windows else { return HUDState.profiles(windows: windows, profiles: profiles) }
+        return HUDState.windows(windows: windows, profiles: profiles, tabs: (try? SafariController.tabs()) ?? [:])
     }
 
     func cancel() {
@@ -74,7 +127,7 @@ final class HUDController {
         switch effect {
         case .none: break
         case .show(let extraPresses): show(extraPresses: extraPresses)
-        case .moveSelection(let offset): step(offset > 0 ? .next : .previous)
+        case .moveSelection(let offset): update { $0.step(by: offset) }
         case .switchNow:
             stopTimer()
             onVisibilityChange()
@@ -95,19 +148,19 @@ final class HUDController {
     private func show(extraPresses: Int) {
         guard !hud.isVisible else { return }
         do {
-            let windows = try SafariController.windows()
-            let profiles = knownProfiles()
-            var state = settings.hudMode == .windows
-                ? HUDState.windows(windows: windows, profiles: profiles)
-                : HUDState.profiles(windows: windows, profiles: profiles)
+            var state = try makeState()
             state.step(by: extraPresses)
             self.state = state
-            self.windows = windows
+            let profiles = knownProfiles()
             hud.model.look = { [settings] profile in profile.map { settings.look(for: $0, among: profiles) } ?? .unknown }
-            hud.model.onClick = { [weak self] index in
+            hud.model.onClick = { [weak self] index, tab in
                 self?.state?.select(index)
+                if let tab, case .window(let id)? = self?.state?.selected?.target {
+                    self?.state?.select(windowID: id, tab: tab)
+                }
                 self?.close(confirm: true)
             }
+            setPendingClose(nil)
             let frame = windows.first.flatMap { try? SafariController.bounds(windowID: $0.id) }
             hud.show(state, near: frame)
             onVisibilityChange()
@@ -122,13 +175,15 @@ final class HUDController {
         session.reset()
         stopTimer()
         let selected = state?.selected
+        let tab = state?.selectedTab
         let windows = self.windows
+        setPendingClose(nil)
         hud.hide()
         state = nil
         self.windows = []
         onVisibilityChange()
         guard confirm, let selected else { return }
-        onActivate(selected, windows)
+        onActivate(selected, windows, tab)
     }
 
     private func stopTimer() {

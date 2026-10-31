@@ -1,27 +1,97 @@
+import AppKit
 import SwiftUI
 import SwitcherCore
 
-struct SettingsView: View {
-    @ObservedObject var controller: AppController
-    @ObservedObject var settings: AppSettings
-    @State var tab = 0
+/// The settings panes, in toolbar order.
+enum SettingsPane: Int, CaseIterable {
+    case profiles, general, shortcuts, links, about
 
-    var body: some View {
-        TabView(selection: $tab) {
-            GeneralSettings(controller: controller, settings: settings)
-                .tabItem { Label("General", systemImage: "gearshape") }.tag(0)
-            ShortcutSettings(controller: controller, settings: settings)
-                .tabItem { Label("Shortcuts", systemImage: "keyboard") }.tag(1)
-            LinkSettings(controller: controller, settings: settings)
-                .tabItem { Label("Links", systemImage: "link") }.tag(2)
-            PermissionSettings(controller: controller)
-                .tabItem { Label("Permissions", systemImage: "lock.shield") }.tag(3)
+    var title: String {
+        switch self {
+        case .profiles: String(localized: "Profiles")
+        case .general: String(localized: "General")
+        case .shortcuts: String(localized: "Shortcuts")
+        case .links: String(localized: "Links")
+        case .about: String(localized: "About")
         }
-        .frame(width: 640, height: 600)
-        .onAppear {
-            controller.refreshPermissions()
-            controller.refreshProfiles()
+    }
+
+    var symbol: String {
+        switch self {
+        case .profiles: "person.2"
+        case .general: "gearshape"
+        case .shortcuts: "keyboard"
+        case .links: "link"
+        case .about: "info.circle"
         }
+    }
+
+    /// The pane's content, as tall as it needs to be: the window takes its height, nothing scrolls.
+    @MainActor
+    func view(controller: AppController, settings: AppSettings) -> AnyView {
+        let content: AnyView = switch self {
+        case .profiles: AnyView(ProfileSettings(controller: controller, settings: settings))
+        case .general: AnyView(GeneralSettings(controller: controller, settings: settings))
+        case .shortcuts: AnyView(ShortcutSettings(controller: controller, settings: settings))
+        case .links: AnyView(LinkSettings(controller: controller, settings: settings))
+        case .about: AnyView(AboutSettings(controller: controller))
+        }
+        return AnyView(content
+            .formStyle(.grouped)
+            .scrollDisabled(true)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(width: 640))
+    }
+
+    @MainActor
+    func viewController(controller: AppController, settings: AppSettings) -> NSViewController {
+        let hosting = NSHostingController(rootView: view(controller: controller, settings: settings))
+        hosting.sizingOptions = [.preferredContentSize]
+        hosting.title = title
+        return hosting
+    }
+}
+
+/// The settings window: a toolbar with the panes, like System Settings' older style and most Mac apps.
+@MainActor
+final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    private let tabs = NSTabViewController()
+    private let controller: AppController
+
+    init(controller: AppController) {
+        self.controller = controller
+        tabs.tabStyle = .toolbar
+        tabs.transitionOptions = [.allowUserInteraction]
+        for pane in SettingsPane.allCases {
+            let item = NSTabViewItem(viewController: pane.viewController(controller: controller, settings: controller.settings))
+            item.label = pane.title
+            item.image = NSImage(systemSymbolName: pane.symbol, accessibilityDescription: pane.title)
+            tabs.addTabViewItem(item)
+        }
+        let window = NSWindow(contentViewController: tabs)
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.toolbarStyle = .preference
+        window.isReleasedWhenClosed = false
+        super.init(window: window)
+        window.delegate = self
+        window.center()
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// Brings the window to the front. A menu bar app has no Dock icon and isn't in ⌘⇥, so it can stay
+    /// behind other apps' windows; while the settings are open it becomes a regular app.
+    func show() {
+        controller.refreshPermissions()
+        controller.refreshProfiles()
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate()
+        window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
     }
 }
 
@@ -31,20 +101,6 @@ private struct GeneralSettings: View {
 
     var body: some View {
         Form {
-            Section {
-                ForEach(knownProfiles, id: \.self) { profileRow($0) }
-                if !controller.profileWarnings.isEmpty {
-                    ForEach(controller.profileWarnings, id: \.self) { warning in
-                        Label(warning.message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
-                    }
-                }
-                Button("Refresh profile list") { controller.refreshProfiles() }
-            } header: {
-                Text("Safari profiles")
-            } footer: {
-                Text("The switch shortcut goes through the checked profiles in this order. The badge and color show the profile in the menu bar and the switcher.")
-                    .foregroundStyle(.secondary)
-            }
             Section("Switching") {
                 Toggle("Close a window that only shows the start page", isOn: $settings.closeEmptyWindow)
                 Toggle("Open the new window in place of the current one", isOn: $settings.newWindowInPlace)
@@ -70,6 +126,35 @@ private struct GeneralSettings: View {
             } header: {
                 Text("Switcher (hold the modifier of the switch shortcut)")
             }
+            Section("General") {
+                Toggle("Launch at login", isOn: Binding(
+                    get: { controller.launchAtLogin },
+                    set: { controller.setLaunchAtLogin($0) }))
+            }
+        }
+    }
+}
+
+private struct ProfileSettings: View {
+    @ObservedObject var controller: AppController
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(knownProfiles, id: \.self) { profileRow($0) }
+                if !controller.profileWarnings.isEmpty {
+                    ForEach(controller.profileWarnings, id: \.self) { warning in
+                        Label(warning.message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                    }
+                }
+                Button("Refresh profile list") { controller.refreshProfiles() }
+            } header: {
+                Text("Safari profiles")
+            } footer: {
+                Text("The switch shortcut goes through the checked profiles in this order. The badge and color show the profile in the menu bar and the switcher.")
+                    .foregroundStyle(.secondary)
+            }
             Section {
                 Picker("Menu bar shows", selection: $settings.menuBarStyle) {
                     ForEach(MenuBarStyle.allCases) { Text($0.title).tag($0) }
@@ -80,13 +165,7 @@ private struct GeneralSettings: View {
                 Text("The badge is the profile of Safari's front window; faded while another app is in front.")
                     .foregroundStyle(.secondary)
             }
-            Section("General") {
-                Toggle("Launch at login", isOn: Binding(
-                    get: { controller.launchAtLogin },
-                    set: { controller.setLaunchAtLogin($0) }))
-            }
         }
-        .formStyle(.grouped)
     }
 
     /// Profiles to switch between first (in their order), then the other detected ones.
@@ -167,14 +246,13 @@ private struct ShortcutSettings: View {
             } header: {
                 Text("While the switcher is open")
             } footer: {
-                Text("The switch shortcut also selects the next profile, and with ⇧ the previous one. Release the modifier to confirm.")
+                Text("The switch shortcut also selects the next profile (in the window list, the next window), and with ⇧ the previous one. In the window list, next / previous go through the window's tabs. Release the modifier to confirm.")
                     .foregroundStyle(.secondary)
             }
             if let note {
                 Section { Text(note).foregroundStyle(.orange) }
             }
         }
-        .formStyle(.grouped)
     }
 
     private func row(_ action: ShortcutAction) -> some View {
@@ -221,11 +299,21 @@ private struct ShortcutSettings: View {
     }
 }
 
-private struct PermissionSettings: View {
+private struct AboutSettings: View {
     @ObservedObject var controller: AppController
 
     var body: some View {
         Form {
+            Section {
+                HStack(spacing: 14) {
+                    Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(verbatim: "Safari Profile Switcher").font(.title2.weight(.semibold))
+                        Text("Version \(Self.version)").foregroundStyle(.secondary).textSelection(.enabled)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
             Section("Permissions") {
                 LabeledContent("Accessibility") {
                     HStack {
@@ -257,9 +345,16 @@ private struct PermissionSettings: View {
                 }
             }
         }
-        .formStyle(.grouped)
         .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
             controller.refreshPermissions()
         }
+    }
+
+    /// "1.1.0 (5)": the version and the build number (commit count) from Info.plist.
+    static var version: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let short = info["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info["CFBundleVersion"] as? String ?? "?"
+        return "\(short) (\(build))"
     }
 }

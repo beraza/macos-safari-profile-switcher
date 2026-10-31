@@ -2,7 +2,8 @@ import Foundation
 
 /// Everything that can be bound to a shortcut.
 public enum ShortcutAction: String, CaseIterable, Codable, Sendable, Identifiable {
-    case switchProfile, moveTabToOtherProfile, detachTab, attachTab, hudNext, hudPrevious, hudUp, hudDown, hudCancel
+    case switchProfile, moveTabToOtherProfile, detachTab, attachTab, hudNext, hudPrevious, hudUp, hudDown, hudCloseTab,
+         hudCancel
     /// The switch shortcut with Shift, like ⌘⇧⇥: derived from the switch shortcut, not set by the user.
     case switchBack
 
@@ -20,7 +21,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Sendable, Identifiabl
         switch self {
         case .switchProfile: [.safari, .hud]
         case .moveTabToOtherProfile, .detachTab, .attachTab: [.safari]
-        case .hudNext, .hudPrevious, .hudUp, .hudDown, .hudCancel, .switchBack: [.hud]
+        case .hudNext, .hudPrevious, .hudUp, .hudDown, .hudCloseTab, .hudCancel, .switchBack: [.hud]
         }
     }
 
