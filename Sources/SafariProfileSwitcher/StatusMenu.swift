@@ -52,6 +52,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let settings = controller.settings
+        let windows = SafariController.runningApp == nil ? nil : Result { try SafariController.windows() }
+        controller.updateProfileWarnings(windows: try? windows?.get())
         menu.addItem(disabled(controller.profilesSummary))
         if let shortcut = settings.shortcuts[.switchProfile] {
             menu.addItem(disabled(String(localized: "Shortcut: \(shortcut.displayString)")))
@@ -59,8 +61,11 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         if let error = controller.lastError {
             menu.addItem(disabled("⚠️ \(error)"))
         }
+        for warning in controller.profileWarnings {
+            menu.addItem(disabled("⚠️ \(warning.message)"))
+        }
         menu.addItem(.separator())
-        addWindows(to: menu)
+        addWindows(windows, to: menu)
         if let transfer = controller.lastTransfer {
             menu.addItem(.separator())
             menu.addItem(item(String(localized: "Always open \(transfer.host) in “\(transfer.profile)”")) {
@@ -76,14 +81,14 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     }
 
     /// Windows grouped by profile (known profiles first, in order), each with a "New Window" item.
-    private func addWindows(to menu: NSMenu) {
-        guard SafariController.runningApp != nil else {
+    private func addWindows(_ result: Result<[SafariWindow], Error>?, to menu: NSMenu) {
+        guard let result else {
             menu.addItem(disabled(String(localized: "Safari is not running")))
             return
         }
         let windows: [SafariWindow]
         do {
-            windows = try SafariController.windows()
+            windows = try result.get()
         } catch {
             menu.addItem(disabled("⚠️ \(error.localizedDescription)"))
             return

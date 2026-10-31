@@ -87,21 +87,27 @@ public enum LinkCleaner {
 
     /// Unwraps redirect wrappers (Outlook Safe Links, Facebook, Google, Instagram, VK) and optionally
     /// removes tracking parameters (`utm_*`, `fbclid`, …).
-    public static func clean(_ url: URL, stripTracking: Bool) -> URL {
+    public static func clean(_ url: URL, unwrapRedirects: Bool = true, stripTracking: Bool) -> URL {
         var url = url
-        for _ in 0..<3 {
-            guard let inner = unwrap(url) else { break }
-            url = inner
+        if unwrapRedirects {
+            for _ in 0..<3 {
+                guard let inner = unwrap(url) else { break }
+                url = inner
+            }
         }
         return stripTracking ? withoutTracking(url) : url
     }
 
+    /// The link a redirect wrapper points to. Only web links are taken: a wrapper must not turn into
+    /// `javascript:`, `file:` or another scheme Safari would handle differently.
     static func unwrap(_ url: URL) -> URL? {
         guard let host = url.host()?.lowercased(),
               let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
         else { return nil }
         func value(_ name: String) -> URL? {
-            items.first { $0.name == name }?.value.flatMap(URL.init(string:)).flatMap { $0.scheme == nil ? nil : $0 }
+            items.first { $0.name == name }?.value.flatMap(URL.init(string:)).flatMap { inner in
+                ["http", "https"].contains(inner.scheme?.lowercased() ?? "") && inner.host() != nil ? inner : nil
+            }
         }
         let path = url.path()
         if host.hasSuffix(".safelinks.protection.outlook.com") { return value("url") }
@@ -111,13 +117,19 @@ public enum LinkCleaner {
         return nil
     }
 
+    /// Drops tracking parameters and leaves the rest of the query byte for byte as it was
+    /// (re-encoding decoded items would turn `%2F` into `/` and break signed links).
     static func withoutTracking(_ url: URL) -> URL {
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let items = components.queryItems
+              let items = components.percentEncodedQueryItems
         else { return url }
-        let kept = items.filter { !$0.name.lowercased().hasPrefix("utm_") && !trackingParameters.contains($0.name.lowercased()) }
+        func isTracking(_ item: URLQueryItem) -> Bool {
+            let name = (item.name.removingPercentEncoding ?? item.name).lowercased()
+            return name.hasPrefix("utm_") || trackingParameters.contains(name)
+        }
+        let kept = items.filter { !isTracking($0) }
         guard kept.count != items.count else { return url }
-        components.queryItems = kept.isEmpty ? nil : kept
+        components.percentEncodedQueryItems = kept.isEmpty ? nil : kept
         return components.url ?? url
     }
 }

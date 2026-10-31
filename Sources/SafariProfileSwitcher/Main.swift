@@ -6,9 +6,12 @@ import SwiftUI
 enum Main {
     static func main() {
         MainActor.assumeIsolated {
+            #if SELF_TEST
+            // Built in debug, or with `scripts/build-app.sh --self-test`; not part of the release app.
             if CommandLine.arguments.contains("--self-test") {
                 SelfTest.run()
             }
+            #endif
             let app = NSApplication.shared
             let delegate = AppDelegate()
             app.delegate = delegate

@@ -120,8 +120,8 @@ enum HUDMode: String, CaseIterable, Identifiable {
 final class AppSettings: ObservableObject {
     private let defaults: UserDefaults
 
-    @Published var firstProfile: String { didSet { defaults.set(firstProfile, forKey: "firstProfile") } }
-    @Published var secondProfile: String { didSet { defaults.set(secondProfile, forKey: "secondProfile") } }
+    /// Profiles the switch shortcut goes through, in order (two or more to switch).
+    @Published var switchProfiles: [String] { didSet { defaults.set(switchProfiles, forKey: "switchProfiles") } }
     /// Effective bindings; an action without an entry is disabled.
     @Published private(set) var shortcuts: [ShortcutAction: Shortcut] { didSet { saveShortcuts() } }
     @Published var closeEmptyWindow: Bool { didSet { defaults.set(closeEmptyWindow, forKey: "closeEmptyWindow") } }
@@ -150,9 +150,19 @@ final class AppSettings: ObservableObject {
     }
     /// Profile for links no rule matches; empty means "ask".
     @Published var defaultLinkProfile: String { didSet { defaults.set(defaultLinkProfile, forKey: "defaultLinkProfile") } }
+    /// Open the link inside redirect wrappers (Outlook Safe Links, Facebook, Google, VK) instead of the wrapper.
+    @Published var unwrapRedirects: Bool { didSet { defaults.set(unwrapRedirects, forKey: "unwrapRedirects") } }
     /// Remove utm_* and similar parameters from opened links.
     @Published var stripTrackingParams: Bool {
         didSet { defaults.set(stripTrackingParams, forKey: "stripTrackingParams") }
+    }
+    /// Window a detached tab came from, by the id of the window it was moved into. Kept across restarts of
+    /// this app; cleared when Safari quits, since window ids start over then.
+    @Published var detachedFrom: [Int: Int] {
+        didSet {
+            defaults.set(Dictionary(uniqueKeysWithValues: detachedFrom.map { (String($0.key), $0.value) }),
+                         forKey: "detachedFrom")
+        }
     }
     /// Menu bar text per profile; the first letter of the name if missing.
     @Published var profileBadges: [String: String] { didSet { defaults.set(profileBadges, forKey: "profileBadges") } }
@@ -160,8 +170,11 @@ final class AppSettings: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         // Blank names (e.g. a stray "\t" saved by an older text field) count as unset and get re-detected.
-        firstProfile = defaults.string(forKey: "firstProfile")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        secondProfile = defaults.string(forKey: "secondProfile")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        switchProfiles = ProfileMatcher.cleaned(
+            (defaults.stringArray(forKey: "switchProfiles")
+                // Before more than two profiles: a first and a second one.
+                ?? ["firstProfile", "secondProfile"].compactMap { defaults.string(forKey: $0) })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
         shortcuts = Self.loadShortcuts(from: defaults)
         closeEmptyWindow = defaults.object(forKey: "closeEmptyWindow") as? Bool ?? true
         outsideSafariAction = defaults.string(forKey: "outsideSafariAction").flatMap(OutsideSafariAction.init)
@@ -177,6 +190,9 @@ final class AppSettings: ObservableObject {
         linkRules = defaults.data(forKey: "linkRules").flatMap { try? JSONDecoder().decode([LinkRule].self, from: $0) } ?? []
         defaultLinkProfile = defaults.string(forKey: "defaultLinkProfile") ?? ""
         stripTrackingParams = defaults.object(forKey: "stripTrackingParams") as? Bool ?? true
+        unwrapRedirects = defaults.object(forKey: "unwrapRedirects") as? Bool ?? true
+        detachedFrom = (defaults.dictionary(forKey: "detachedFrom") as? [String: Int] ?? [:])
+            .reduce(into: [:]) { result, entry in if let key = Int(entry.key) { result[key] = entry.value } }
     }
 
     /// Adds a rule for `host` (without "www.") or changes the profile of an existing one.
@@ -189,7 +205,24 @@ final class AppSettings: ObservableObject {
         }
     }
 
-    var profilePair: [String] { [firstProfile, secondProfile] }
+    /// Profiles the settings refer to: the switching list, link rules and the default link profile.
+    var usedProfiles: [String] {
+        ProfileMatcher.cleaned(switchProfiles + linkRules.map(\.profile) + [defaultLinkProfile])
+    }
+
+    /// Adds `profile` to the end of the switching list, or removes it.
+    func setSwitching(_ profile: String, _ included: Bool) {
+        switchProfiles.removeAll { $0 == profile }
+        if included { switchProfiles.append(profile) }
+    }
+
+    /// Moves a profile of the switching list up (-1) or down (+1).
+    func moveSwitching(_ profile: String, by offset: Int) {
+        guard let index = switchProfiles.firstIndex(of: profile),
+              switchProfiles.indices.contains(index + offset)
+        else { return }
+        switchProfiles.swapAt(index, index + offset)
+    }
 
     func badge(for profile: String) -> String {
         let custom = profileBadges[profile]?.trimmingCharacters(in: .whitespaces) ?? ""

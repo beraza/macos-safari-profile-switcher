@@ -10,7 +10,8 @@ let package = Package(
         .executableTarget(
             name: "SafariProfileSwitcher",
             dependencies: ["SwitcherCore"],
-            resources: [.process("Resources")]
+            resources: [.process("Resources")],
+            swiftSettings: [.define("SELF_TEST", .when(configuration: .debug))]
         ),
         .testTarget(
             name: "SwitcherCoreTests",

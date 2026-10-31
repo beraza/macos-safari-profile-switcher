@@ -26,7 +26,8 @@ struct LinkSettings: View {
             }
             Section {
                 ForEach($settings.linkRules) { $rule in
-                    RuleRow(rule: $rule, profiles: controller.knownProfiles, onMove: move, onDelete: delete)
+                    RuleRow(rule: $rule, profiles: controller.knownProfiles, detected: controller.detectedProfiles,
+                            onMove: move, onDelete: delete)
                 }
                 Button {
                     settings.linkRules.append(LinkRule(pattern: "", profile: controller.knownProfiles.first ?? ""))
@@ -44,7 +45,12 @@ struct LinkSettings: View {
                     Text("Ask").tag("")
                     ForEach(controller.knownProfiles, id: \.self) { Text($0).tag($0) }
                 }
-                Toggle("Remove tracking parameters (utm_*, fbclid, …) and unwrap redirect links", isOn: $settings.stripTrackingParams)
+                Toggle("Remove tracking parameters (utm_*, fbclid, …)", isOn: $settings.stripTrackingParams)
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("Unwrap redirect links (Outlook Safe Links, Facebook, Google, VK)", isOn: $settings.unwrapRedirects)
+                    Text("Safe Links are checked by Microsoft when clicked; unwrapped links skip that check.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             Section("Try a link") {
                 TextField("Link", text: $testLink, prompt: Text(verbatim: "https://github.com/org/repo"))
@@ -59,7 +65,8 @@ struct LinkSettings: View {
         guard let url = URL(string: testLink.trimmingCharacters(in: .whitespaces)), url.scheme != nil else {
             return String(localized: "Enter a link with http:// or https://")
         }
-        let cleaned = LinkCleaner.clean(url, stripTracking: settings.stripTrackingParams)
+        let cleaned = LinkCleaner.clean(
+            url, unwrapRedirects: settings.unwrapRedirects, stripTracking: settings.stripTrackingParams)
         let app = testApp.trimmingCharacters(in: .whitespaces)
         let profile = controller.linkProfile(for: cleaned, sourceApp: app.isEmpty ? nil : app)
         let target = profile.map { String(localized: "Opens in “\($0)”") } ?? String(localized: "Asks for a profile")
@@ -81,6 +88,7 @@ struct LinkSettings: View {
 private struct RuleRow: View {
     @Binding var rule: LinkRule
     let profiles: [String]
+    let detected: [String]
     let onMove: (LinkRule, Int) -> Void
     let onDelete: (LinkRule) -> Void
 
@@ -107,6 +115,10 @@ private struct RuleRow: View {
             }
             .labelsHidden()
             .frame(width: 110)
+            if !detected.isEmpty && !rule.profile.isEmpty && !detected.contains(rule.profile) {
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
+                    .help(ProfileWarning.missingProfile(rule.profile).message)
+            }
             Button { onMove(rule, -1) } label: { Image(systemName: "chevron.up") }
             Button { onMove(rule, 1) } label: { Image(systemName: "chevron.down") }
             Button { onDelete(rule) } label: { Image(systemName: "trash") }

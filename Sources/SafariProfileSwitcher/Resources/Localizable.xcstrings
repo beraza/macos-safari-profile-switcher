@@ -193,6 +193,16 @@
         }
       }
     },
+    "Can't tell profiles from Safari window titles": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся определить профиль по заголовкам окон Safari"
+          }
+        }
+      }
+    },
     "Can't tell the profile of this window": {
       "localizations": {
         "ru": {
@@ -203,12 +213,22 @@
         }
       }
     },
-    "Choose two different profiles in Settings": {
+    "Choose at least two profiles in Settings": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Укажите два разных профиля в настройках"
+            "value": "Выберите в настройках хотя бы два профиля"
+          }
+        }
+      }
+    },
+    "Choose profiles in Settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите профили в настройках"
           }
         }
       }
@@ -339,16 +359,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Введите ссылку с http:// или https://"
-          }
-        }
-      }
-    },
-    "First profile": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Первый профиль"
           }
         }
       }
@@ -543,16 +553,6 @@
         }
       }
     },
-    "Not selected": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не выбран"
-          }
-        }
-      }
-    },
     "Nothing (leave the shortcut to other apps)": {
       "localizations": {
         "ru": {
@@ -703,6 +703,16 @@
         }
       }
     },
+    "Profile “%@” is not in Safari: renamed or deleted?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Профиля «%@» нет в Safari: его переименовали или удалили?"
+          }
+        }
+      }
+    },
     "Profiles": {
       "localizations": {
         "ru": {
@@ -743,12 +753,12 @@
         }
       }
     },
-    "Remove tracking parameters (utm_*, fbclid, …) and unwrap redirect links": {
+    "Remove tracking parameters (utm_*, fbclid, …)": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удалять параметры отслеживания (utm_*, fbclid, …) и разворачивать ссылки-редиректы"
+            "value": "Удалять параметры отслеживания (utm_*, fbclid, …)"
           }
         }
       }
@@ -793,6 +803,26 @@
         }
       }
     },
+    "Safari has no open windows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Safari нет открытых окон"
+          }
+        }
+      }
+    },
+    "Safari is not responding": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safari не отвечает"
+          }
+        }
+      }
+    },
     "Safari is not running": {
       "localizations": {
         "ru": {
@@ -823,22 +853,22 @@
         }
       }
     },
+    "Safe Links are checked by Microsoft when clicked; unwrapped links skip that check.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microsoft проверяет Safe Links при клике; развёрнутые ссылки эту проверку пропускают."
+          }
+        }
+      }
+    },
     "Save Safari diagnostics": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Сохранить диагностику Safari"
-          }
-        }
-      }
-    },
-    "Second profile": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Второй профиль"
           }
         }
       }
@@ -1013,6 +1043,16 @@
         }
       }
     },
+    "The switch shortcut goes through the checked profiles in this order.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шорткат переключения проходит по отмеченным профилям в этом порядке."
+          }
+        }
+      }
+    },
     "The tab is already alone in its window": {
       "localizations": {
         "ru": {
@@ -1049,6 +1089,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отменить"
+          }
+        }
+      }
+    },
+    "Unwrap redirect links (Outlook Safe Links, Facebook, Google, VK)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разворачивать ссылки-обёртки (Outlook Safe Links, Facebook, Google, VK)"
           }
         }
       }

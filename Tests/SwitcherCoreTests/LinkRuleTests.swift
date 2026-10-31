@@ -59,4 +59,24 @@ final class LinkRuleTests: XCTestCase {
         let plain = URL(string: "https://example.com/?q=1")!
         XCTAssertEqual(LinkCleaner.clean(plain, stripTracking: true), plain)
     }
+
+    func testUnwrapOnlyAcceptsWebLinks() {
+        let script = URL(string: "https://l.facebook.com/l.php?u=javascript:alert(1)")!
+        XCTAssertEqual(LinkCleaner.clean(script, stripTracking: true), script)
+        let file = URL(string: "https://www.google.com/url?q=file:///etc/passwd")!
+        XCTAssertEqual(LinkCleaner.clean(file, stripTracking: true), file)
+    }
+
+    func testUnwrapCanBeTurnedOff() {
+        let wrapped = URL(string: "https://l.facebook.com/l.php?u=https%3A%2F%2Fexample.com%2F%3Futm_source%3Dfb")!
+        XCTAssertEqual(LinkCleaner.clean(wrapped, unwrapRedirects: false, stripTracking: true), wrapped)
+        XCTAssertEqual(LinkCleaner.clean(wrapped, unwrapRedirects: true, stripTracking: false).absoluteString,
+                       "https://example.com/?utm_source=fb")
+    }
+
+    func testStrippingKeepsOtherParametersEncoded() {
+        let url = URL(string: "https://example.com/s?next=%2Fx%3Fy%3D1&sig=a%2Bb%3D&utm_source=z&FBCLID=1")!
+        XCTAssertEqual(LinkCleaner.clean(url, stripTracking: true).absoluteString,
+                       "https://example.com/s?next=%2Fx%3Fy%3D1&sig=a%2Bb%3D")
+    }
 }

@@ -37,20 +37,23 @@ public enum TabTransfer {
     /// - Parameters:
     ///   - tab: the current tab of the front window.
     ///   - windows: Safari windows, front-most first.
+    ///   - profiles: profiles to switch between, in order; without a rule the tab goes to the next one.
     ///   - preferredProfile: profile a link rule picks for the URL; used unless the tab is already there.
     ///   - keepSource: copy instead of move.
     public static func plan(
-        tab: SafariTab, windows: [SafariWindow], first: String, second: String,
+        tab: SafariTab, windows: [SafariWindow], profiles: [String],
         preferredProfile: String? = nil, keepSource: Bool = false
     ) -> Result<TabTransferPlan, TabTransferError> {
-        guard !first.isEmpty, !second.isEmpty, first != second else { return .failure(.profilesNotConfigured) }
+        let switching = ProfileMatcher.cleaned(profiles)
+        guard switching.count >= 2 else { return .failure(.profilesNotConfigured) }
         guard !tab.isStartPage else { return .failure(.nothingToMove) }
-        let profiles = [first, second] + (preferredProfile.map { [$0] } ?? [])
+        let profiles = ProfileMatcher.cleaned(switching + [preferredProfile ?? ""])
         func profile(ofTitle title: String) -> String? { ProfileMatcher.profile(ofTitle: title, among: profiles) }
 
         let current = profile(ofTitle: tab.windowTitle)
-        let target = preferredProfile.flatMap { $0.isEmpty || $0 == current ? nil : $0 }
-            ?? (current == second ? first : second)
+        guard let target = preferredProfile.flatMap({ $0.isEmpty || $0 == current ? nil : $0 })
+            ?? ProfileMatcher.next(after: current, in: switching)
+        else { return .failure(.profilesNotConfigured) }
         let destination: TabTransferPlan.Target = windows
             .first { $0.id != tab.windowID && profile(ofTitle: $0.title) == target }
             .map { .window(id: $0.id) } ?? .newWindow(profile: target)

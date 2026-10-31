@@ -45,3 +45,38 @@ final class HUDTests: XCTestCase {
         XCTAssertNil(HUDState.windows(windows: [], profiles: profiles).selected)
     }
 }
+
+final class HUDKeySessionTests: XCTestCase {
+    func testQuickReleaseSwitchesWithoutHUD() {
+        var session = HUDKeySession(delay: 0.2)
+        XCTAssertEqual(session.press(at: 0), .none)
+        XCTAssertTrue(session.isActive)
+        XCTAssertEqual(session.tick(modifiersHeld: true, at: 0.1), .none)
+        XCTAssertEqual(session.tick(modifiersHeld: false, at: 0.15), .switchNow)
+        XCTAssertFalse(session.isActive)
+    }
+
+    func testHoldingShowsHUDAndReleaseConfirms() {
+        var session = HUDKeySession(delay: 0.2)
+        _ = session.press(at: 0)
+        XCTAssertEqual(session.tick(modifiersHeld: true, at: 0.25), .show(extraPresses: 0))
+        XCTAssertEqual(session.press(at: 0.3), .moveSelection(1))
+        XCTAssertEqual(session.tick(modifiersHeld: true, at: 0.4), .none)
+        XCTAssertEqual(session.tick(modifiersHeld: false, at: 0.5), .confirm)
+        XCTAssertEqual(session.phase, .idle)
+    }
+
+    func testSecondPressShowsHUDRightAway() {
+        var session = HUDKeySession(delay: 0.5)
+        _ = session.press(at: 0)
+        XCTAssertEqual(session.press(at: 0.05), .show(extraPresses: 1))
+    }
+
+    func testZeroDelayShowsOnFirstPress() {
+        var session = HUDKeySession(delay: 0)
+        XCTAssertEqual(session.press(at: 0), .show(extraPresses: 0))
+        session.reset()
+        XCTAssertFalse(session.isActive)
+        XCTAssertEqual(session.tick(modifiersHeld: false, at: 1), .none)
+    }
+}

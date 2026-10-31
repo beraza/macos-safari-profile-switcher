@@ -55,6 +55,20 @@ public enum ProfileMatcher {
             .first { title == $0 || title.hasPrefix($0 + separator) }
     }
 
+    /// Non-empty names without duplicates, in order.
+    public static func cleaned(_ profiles: [String]) -> [String] {
+        var seen = Set<String>()
+        return profiles.filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
+    /// The profile after `current` in `profiles`, wrapping around. A window of no listed profile counts as
+    /// being in the first one, so the switch goes to the second.
+    public static func next(after current: String?, in profiles: [String]) -> String? {
+        guard !profiles.isEmpty else { return nil }
+        let index = current.flatMap(profiles.firstIndex(of:)) ?? 0
+        return profiles[(index + 1) % profiles.count]
+    }
+
     /// The page part of a window title, without the "<Profile> — " prefix.
     public static func pageTitle(ofTitle title: String, profile: String?) -> String {
         guard let profile, title.hasPrefix(profile + separator) else { return title == profile ? "" : title }
@@ -94,19 +108,18 @@ public struct CycleState: Equatable, Sendable {
 
 public enum Switcher {
     /// Decides what to do for one shortcut press: show the next not yet visited window of the
-    /// current profile, and once all were shown, switch to the other profile.
+    /// current profile, and once all were shown, switch to the next profile.
     /// - Parameters:
     ///   - windows: Safari windows, front-most first.
-    ///   - first: name of the first profile.
-    ///   - second: name of the second profile.
+    ///   - profiles: profiles to switch between, in order (at least two).
     ///   - cycle: `SwitchPlan.cycle` from the previous press.
     ///   - closeEmpty: close the front window if it only shows the start page.
-    /// - Returns: `nil` if the profile pair is not configured.
+    /// - Returns: `nil` if fewer than two profiles are configured.
     public static func decide(
-        windows: [SafariWindow], first: String, second: String, cycle: CycleState? = nil, closeEmpty: Bool = true
+        windows: [SafariWindow], profiles: [String], cycle: CycleState? = nil, closeEmpty: Bool = true
     ) -> SwitchPlan? {
-        guard !first.isEmpty, !second.isEmpty, first != second else { return nil }
-        let profiles = [first, second]
+        let profiles = ProfileMatcher.cleaned(profiles)
+        guard profiles.count >= 2 else { return nil }
         func profile(of window: SafariWindow) -> String? {
             ProfileMatcher.profile(ofTitle: window.title, among: profiles)
         }
@@ -126,7 +139,7 @@ public enum Switcher {
             }
         }
 
-        let targetProfile = currentProfile == second ? first : second
+        guard let targetProfile = ProfileMatcher.next(after: currentProfile, in: profiles) else { return nil }
         if let window = windows.first(where: { profile(of: $0) == targetProfile }) {
             return SwitchPlan(
                 target: .focus(windowID: window.id), closeWindowID: closeID,

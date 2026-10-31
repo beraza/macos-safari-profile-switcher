@@ -1,3 +1,4 @@
+#if SELF_TEST
 import AppKit
 import SwiftUI
 import Carbon.HIToolbox
@@ -61,8 +62,7 @@ enum SelfTest {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(defaults: defaults)
-        settings.firstProfile = "Личное"
-        settings.secondProfile = "Работа"
+        settings.switchProfiles = ["Личное", "Работа"]
         settings.linkRules = [LinkRule(pattern: "github.com/work-org", sourceApp: "com.tinyspeck.slackmacgap", profile: "Работа")]
         let controller = AppController(customSettings: settings, promptForAccessibility: false)
         for tab in 0..<4 {
@@ -135,13 +135,12 @@ enum SelfTest {
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(defaults: defaults)
         let profiles = Set(userWindows.compactMap { $0.title.components(separatedBy: ProfileMatcher.separator).first })
-        settings.firstProfile = profiles.sorted().first ?? "Личное"
-        settings.secondProfile = "SelfTest Profile"
+        settings.switchProfiles = [profiles.sorted().first ?? "Личное", "SelfTest Profile"]
         let controller = AppController(customSettings: settings, promptForAccessibility: false)
         let menu = StatusMenu(controller: controller) {}
         let lines = menu.renderedLines()
         print(lines.map { "    | \($0)" }.joined(separator: "\n"))
-        check(lines.contains("[\(settings.firstProfile)]") && lines.contains("[SelfTest Profile]"),
+        check(lines.contains("[\(settings.switchProfiles[0])]") && lines.contains("[SelfTest Profile]"),
               "menu: sections for both profiles")
         let listed = lines.filter { $0.hasPrefix("  ") || $0.hasPrefix("✓ ") }.count
         check(listed >= userWindows.count, "menu: \(userWindows.count) windows listed")
@@ -160,7 +159,7 @@ enum SelfTest {
         let detached = Int(try SafariController.call("makeDocument", NSAppleEventDescriptor(string: base + "-solo")).int32Value)
         defer { try? SafariController.close(windowID: detached) }
         pause(1)
-        controller.detachedFrom[detached] = home
+        controller.settings.detachedFrom[detached] = home
         var finished = false
         Task {
             do { try await controller.attachTab() } catch { check(false, "attachTab: \(error.localizedDescription)") }
@@ -171,7 +170,7 @@ enum SelfTest {
         let windows = try SafariController.windows()
         check(!windows.contains { $0.id == detached }, "attachTab: emptied window closed")
         check(windows.first?.id == home && windows.first?.tabCount == 2, "attachTab: tab is back in its window, which is in front")
-        check(controller.detachedFrom.isEmpty, "attachTab: bookkeeping cleared")
+        check(controller.settings.detachedFrom.isEmpty, "attachTab: bookkeeping cleared")
         try SafariController.close(windowID: home)
         pause()
         check(try SafariController.windows().map(\.id) == userWindows.map(\.id), "attachTab: user windows untouched")
@@ -190,8 +189,7 @@ enum SelfTest {
         pause(1)
         let title = try SafariController.windows().first { $0.id == window }?.title ?? ""
         let profile = title.hasSuffix("SPSW Rules") ? title : "SPSW Rules"
-        settings.firstProfile = profile
-        settings.secondProfile = "SelfTest Profile"
+        settings.switchProfiles = [profile, "SelfTest Profile"]
         settings.linkRules = [LinkRule(pattern: "example.com", sourceApp: "com.apple.mail", profile: profile)]
         let controller = AppController(customSettings: settings, promptForAccessibility: false)
 
@@ -237,8 +235,7 @@ enum SelfTest {
             check(false, "hud: test windows listed")
             return
         }
-        settings.firstProfile = profileOne
-        settings.secondProfile = profileTwo
+        settings.switchProfiles = [profileOne, profileTwo]
         settings.profileBadges = [profileOne: "1", profileTwo: "2"]
         let controller = AppController(customSettings: settings, promptForAccessibility: false)
 
@@ -383,3 +380,4 @@ enum SelfTest {
         }
     }
 }
+#endif

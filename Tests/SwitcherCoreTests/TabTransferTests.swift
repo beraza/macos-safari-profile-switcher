@@ -15,7 +15,7 @@ final class TabTransferTests: XCTestCase {
 
     func testMovesToFrontMostWindowOfOtherProfile() {
         let windows = [window(1, "Личное — Jira"), window(2, "Работа — Mail"), window(3, "Работа — Docs")]
-        let plan = TabTransfer.plan(tab: tab("Личное — Jira"), windows: windows, first: personal, second: work)
+        let plan = TabTransfer.plan(tab: tab("Личное — Jira"), windows: windows, profiles: [personal, work])
         XCTAssertEqual(plan, .success(TabTransferPlan(
             profile: work, target: .window(id: 2), cleanup: .closeTab(windowID: 1, index: 2))))
     }
@@ -23,14 +23,14 @@ final class TabTransferTests: XCTestCase {
     func testOpensNewWindowAndClosesSingleTabWindow() {
         let plan = TabTransfer.plan(
             tab: tab("Работа — Jira", index: 1, count: 1), windows: [window(1, "Работа — Jira")],
-            first: personal, second: work)
+            profiles: [personal, work])
         XCTAssertEqual(plan, .success(TabTransferPlan(
             profile: personal, target: .newWindow(profile: personal), cleanup: .closeWindow(id: 1))))
     }
 
     func testKeepSourceCopiesTab() {
         let plan = TabTransfer.plan(
-            tab: tab("Личное — Jira"), windows: [window(1, "Личное — Jira")], first: personal, second: work,
+            tab: tab("Личное — Jira"), windows: [window(1, "Личное — Jira")], profiles: [personal, work],
             keepSource: true)
         XCTAssertEqual(try plan.get().cleanup, TabTransferPlan.Cleanup.none)
     }
@@ -38,21 +38,27 @@ final class TabTransferTests: XCTestCase {
     func testPreferredProfileFromRuleWins() {
         let windows = [window(1, "Личное — Jira"), window(4, "Клиент — CRM")]
         let plan = TabTransfer.plan(
-            tab: tab("Личное — Jira"), windows: windows, first: personal, second: work, preferredProfile: "Клиент")
+            tab: tab("Личное — Jira"), windows: windows, profiles: [personal, work], preferredProfile: "Клиент")
         XCTAssertEqual(try plan.get().target, .window(id: 4))
         XCTAssertEqual(try plan.get().profile, "Клиент")
     }
 
-    func testPreferredProfileEqualToCurrentFallsBackToOtherOfPair() {
+    func testPreferredProfileEqualToCurrentFallsBackToNextProfile() {
         let plan = TabTransfer.plan(
-            tab: tab("Работа — Jira"), windows: [], first: personal, second: work, preferredProfile: work)
+            tab: tab("Работа — Jira"), windows: [], profiles: [personal, work], preferredProfile: work)
         XCTAssertEqual(try plan.get().profile, personal)
     }
 
+    func testMovesToNextOfSeveralProfiles() {
+        let windows = [window(1, "Работа — Jira"), window(2, "Личное — Mail"), window(3, "Клиент — CRM")]
+        let plan = TabTransfer.plan(tab: tab("Работа — Jira"), windows: windows, profiles: [personal, work, "Клиент"])
+        XCTAssertEqual(try plan.get().target, .window(id: 3))
+    }
+
     func testRejectsStartPageAndBadPair() {
-        XCTAssertEqual(TabTransfer.plan(tab: tab("Личное — x", url: "favorites://"), windows: [], first: personal, second: work),
+        XCTAssertEqual(TabTransfer.plan(tab: tab("Личное — x", url: "favorites://"), windows: [], profiles: [personal, work]),
                        .failure(.nothingToMove))
-        XCTAssertEqual(TabTransfer.plan(tab: tab("Личное — x"), windows: [], first: personal, second: personal),
+        XCTAssertEqual(TabTransfer.plan(tab: tab("Личное — x"), windows: [], profiles: [personal, personal]),
                        .failure(.profilesNotConfigured))
     }
 }

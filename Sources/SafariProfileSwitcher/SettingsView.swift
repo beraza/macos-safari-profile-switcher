@@ -31,10 +31,19 @@ private struct GeneralSettings: View {
 
     var body: some View {
         Form {
-            Section("Safari profiles") {
-                profileRow("First profile", selection: $settings.firstProfile)
-                profileRow("Second profile", selection: $settings.secondProfile)
+            Section {
+                ForEach(knownProfiles, id: \.self) { profileRow($0) }
+                if !controller.profileWarnings.isEmpty {
+                    ForEach(controller.profileWarnings, id: \.self) { warning in
+                        Label(warning.message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                    }
+                }
                 Button("Refresh profile list") { controller.refreshProfiles() }
+            } header: {
+                Text("Safari profiles")
+            } footer: {
+                Text("The switch shortcut goes through the checked profiles in this order.")
+                    .foregroundStyle(.secondary)
             }
             Section("Switching") {
                 Toggle("Close a window that only shows the start page", isOn: $settings.closeEmptyWindow)
@@ -81,10 +90,8 @@ private struct GeneralSettings: View {
         .formStyle(.grouped)
     }
 
-    private var knownProfiles: [String] {
-        var seen = Set<String>()
-        return (settings.profilePair + controller.detectedProfiles).filter { !$0.isEmpty && seen.insert($0).inserted }
-    }
+    /// Profiles to switch between first (in their order), then the other detected ones.
+    private var knownProfiles: [String] { controller.knownProfiles }
 
     private func badgeBinding(_ profile: String) -> Binding<String> {
         Binding(
@@ -92,17 +99,27 @@ private struct GeneralSettings: View {
             set: { settings.profileBadges[profile] = $0.isEmpty ? nil : String($0.prefix(4)) })
     }
 
-    /// A picker rather than a text field, so a stray keystroke (e.g. ⌥⇥) can't overwrite the name.
-    private func profileRow(_ label: LocalizedStringKey, selection: Binding<String>) -> some View {
-        Picker(label, selection: selection) {
-            if !controller.detectedProfiles.contains(selection.wrappedValue) {
-                Text(selection.wrappedValue.isEmpty ? String(localized: "Not selected") : selection.wrappedValue)
-                    .tag(selection.wrappedValue)
+    /// A checkbox rather than a text field, so a stray keystroke (e.g. ⌥⇥) can't change a name.
+    private func profileRow(_ profile: String) -> some View {
+        let index = settings.switchProfiles.firstIndex(of: profile)
+        return HStack {
+            Toggle(isOn: Binding(get: { index != nil }, set: { settings.setSwitching(profile, $0) })) {
+                Text(profile)
             }
-            ForEach(controller.detectedProfiles, id: \.self) { name in
-                Text(name).tag(name)
+            if !controller.detectedProfiles.isEmpty && !controller.detectedProfiles.contains(profile) {
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
+                    .help(ProfileWarning.missingProfile(profile).message)
+            }
+            Spacer()
+            if let index {
+                Text("\(index + 1)").monospacedDigit().foregroundStyle(.secondary)
+                Button { settings.moveSwitching(profile, by: -1) } label: { Image(systemName: "chevron.up") }
+                    .disabled(index == 0)
+                Button { settings.moveSwitching(profile, by: 1) } label: { Image(systemName: "chevron.down") }
+                    .disabled(index == settings.switchProfiles.count - 1)
             }
         }
+        .buttonStyle(.borderless)
     }
 }
 

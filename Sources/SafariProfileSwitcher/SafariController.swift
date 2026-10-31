@@ -12,6 +12,8 @@ enum SafariError: LocalizedError {
     case menuItemNotFound(String)
     case accessibilityDenied
     case timeout
+    case notResponding
+    case noWindows
 
     var errorDescription: String? {
         switch self {
@@ -21,6 +23,8 @@ enum SafariError: LocalizedError {
             String(localized: "No “New Window” menu item for profile “\(profile)”")
         case .accessibilityDenied: String(localized: "No Accessibility permission")
         case .timeout: String(localized: "Safari did not open a new window in time")
+        case .notResponding: String(localized: "Safari is not responding")
+        case .noWindows: String(localized: "Safari has no open windows")
         }
     }
 }
@@ -40,88 +44,119 @@ enum SafariController {
     /// All AppleScript in one script, compiled once; Swift calls its handlers with parameters.
     static let librarySource = """
         on listWindows()
-            tell application "Safari"
-                set out to {}
-                repeat with w in windows
-                    try
-                        -- Closed windows linger as invisible ones (for "Reopen Last Closed Window"); skip them.
-                        if visible of w or miniaturized of w then
-                            set u to ""
-                            try
-                                set u to URL of tab 1 of w
-                            end try
-                            if u is missing value then set u to ""
-                            set end of out to {id of w, name of w, count of tabs of w, u}
-                        end if
-                    end try
-                end repeat
-                return out
-            end tell
+            with timeout of 5 seconds
+                tell application "Safari"
+                    set out to {}
+                    repeat with w in windows
+                        try
+                            -- Closed windows linger as invisible ones (for "Reopen Last Closed Window"); skip them.
+                            if visible of w or miniaturized of w then
+                                set u to ""
+                                try
+                                    set u to URL of tab 1 of w
+                                end try
+                                if u is missing value then set u to ""
+                                set end of out to {id of w, name of w, count of tabs of w, u}
+                            end if
+                        end try
+                    end repeat
+                    return out
+                end tell
+            end timeout
         end listWindows
 
         on windowInfo(wid)
-            tell application "Safari"
-                set w to window id wid
-                return {name of w, bounds of w}
-            end tell
+            with timeout of 5 seconds
+                tell application "Safari"
+                    set w to window id wid
+                    return {name of w, bounds of w}
+                end tell
+            end timeout
         end windowInfo
 
         on focusWindow(wid)
-            tell application "Safari"
-                set w to window id wid
-                if miniaturized of w then set miniaturized of w to false
-                set index of w to 1
-                return {name of w, bounds of w}
-            end tell
+            with timeout of 5 seconds
+                tell application "Safari"
+                    set w to window id wid
+                    if miniaturized of w then set miniaturized of w to false
+                    set index of w to 1
+                    return {name of w, bounds of w}
+                end tell
+            end timeout
         end focusWindow
 
         on closeWindow(wid)
-            tell application "Safari" to close window id wid
+            with timeout of 5 seconds
+                tell application "Safari" to close window id wid
+            end timeout
         end closeWindow
 
         on setWindowBounds(wid, b)
-            tell application "Safari" to set bounds of window id wid to b
+            with timeout of 5 seconds
+                tell application "Safari" to set bounds of window id wid to b
+            end timeout
         end setWindowBounds
 
         on currentTabInfo()
-            tell application "Safari"
-                set w to window 1
-                set t to current tab of w
-                set u to URL of t
-                if u is missing value then set u to ""
-                return {id of w, name of w, index of t, count of tabs of w, u}
-            end tell
+            with timeout of 5 seconds
+                tell application "Safari"
+                    -- Closed windows linger as invisible ones; take the front-most visible window.
+                    repeat with w in windows
+                        set isVisible to false
+                        try
+                            set isVisible to visible of w
+                        end try
+                        if isVisible then
+                            set t to current tab of w
+                            set u to URL of t
+                            if u is missing value then set u to ""
+                            return {id of w, name of w, index of t, count of tabs of w, u}
+                        end if
+                    end repeat
+                    return {}
+                end tell
+            end timeout
         end currentTabInfo
 
         on openTab(wid, u)
-            tell application "Safari"
-                set w to window id wid
-                tell w to set t to make new tab at end of tabs with properties {URL:u}
-                set current tab of w to t
-            end tell
+            with timeout of 5 seconds
+                tell application "Safari"
+                    set w to window id wid
+                    tell w to set t to make new tab at end of tabs with properties {URL:u}
+                    set current tab of w to t
+                end tell
+            end timeout
         end openTab
 
         on setCurrentTabURL(wid, u)
-            tell application "Safari" to set URL of current tab of window id wid to u
+            with timeout of 5 seconds
+                tell application "Safari" to set URL of current tab of window id wid to u
+            end timeout
         end setCurrentTabURL
 
         on closeTab(wid, idx)
-            tell application "Safari" to close tab idx of window id wid
+            with timeout of 5 seconds
+                tell application "Safari" to close tab idx of window id wid
+            end timeout
         end closeTab
 
         on moveTab(fromWid, idx, toWid)
-            tell application "Safari"
-                move tab idx of window id fromWid to end of tabs of window id toWid
-                set w to window id toWid
-                set current tab of w to last tab of w
-            end tell
+            with timeout of 5 seconds
+                tell application "Safari"
+                    move tab idx of window id fromWid to end of tabs of window id toWid
+                    set w to window id toWid
+                    set current tab of w to last tab of w
+                end tell
+            end timeout
         end moveTab
 
         on makeDocument(u)
-            tell application "Safari"
-                make new document with properties {URL:u}
-                return id of window 1
-            end tell
+            with timeout of 5 seconds
+                tell application "Safari"
+                    make new document with properties {URL:u}
+                    return id of window 1
+                end tell
+            end timeout
         end makeDocument
         """
 
@@ -138,7 +173,8 @@ enum SafariController {
         return script
     }
 
-    /// Calls a handler of the compiled library.
+    /// Calls a handler of the compiled library. Each handler gives up after 5 seconds if Safari hangs
+    /// (instead of AppleScript's default 2 minutes, which would freeze the menu bar and the shortcuts).
     @discardableResult
     static func call(_ handler: String, _ arguments: NSAppleEventDescriptor...) throws -> NSAppleEventDescriptor {
         let event = NSAppleEventDescriptor(
@@ -168,7 +204,12 @@ enum SafariController {
     }
 
     private static func scriptError(_ error: NSDictionary?) -> SafariError {
-        .script(error?[NSAppleScript.errorMessage] as? String ?? "\(error ?? [:])")
+        switch error?[NSAppleScript.errorNumber] as? Int {
+        case -1712: return .notResponding // errAETimeout
+        case -600, -609: return .notRunning // procNotFound, connectionInvalid
+        default: break
+        }
+        return .script(error?[NSAppleScript.errorMessage] as? String ?? "\(error ?? [:])")
     }
 
     // MARK: - Windows and tabs
@@ -197,6 +238,7 @@ enum SafariController {
     /// The current tab of the front window.
     static func currentTab() throws -> SafariTab {
         let info = try call("currentTabInfo")
+        guard info.numberOfItems == 5 else { throw SafariError.noWindows }
         return SafariTab(
             windowID: Int(info.atIndex(1)?.int32Value ?? 0),
             windowTitle: info.atIndex(2)?.stringValue ?? "",
@@ -302,9 +344,8 @@ enum SafariController {
     static func openNewWindow(profile: String) throws {
         guard AXIsProcessTrusted() else { throw SafariError.accessibilityDenied }
         guard let fileMenu = barMenu(at: 2) else { throw SafariError.notRunning }
-        let items = menuItems(in: fileMenu)
-        let item = items.first { quotedName(in: $0.title) == profile && $0.enabled }
-            ?? items.first { $0.title.contains(profile) && $0.enabled }
+        // Only an exact «Profile» match: a substring could hit another profile ("Work" in «Work Old») or any item.
+        let item = menuItems(in: fileMenu).first { quotedName(in: $0.title) == profile && $0.enabled }
         guard let item else { throw SafariError.menuItemNotFound(profile) }
         try press(item)
     }
@@ -342,7 +383,10 @@ enum SafariController {
             names = menuItems(in: fileMenu).compactMap { quotedName(in: $0.title) }
         }
         if names.isEmpty, let windows = try? windows() {
-            names = windows.compactMap { $0.title.components(separatedBy: ProfileMatcher.separator).first }
+            // Only titles that have a profile prefix; otherwise the whole page title would pass for a profile.
+            names = windows.compactMap { window in
+                window.title.range(of: ProfileMatcher.separator).map { String(window.title[..<$0.lowerBound]) }
+            }
         }
         var seen = Set<String>()
         return names.filter { seen.insert($0).inserted }
