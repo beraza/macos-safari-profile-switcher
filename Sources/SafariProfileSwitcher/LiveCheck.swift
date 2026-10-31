@@ -14,6 +14,7 @@ final class LiveCheck: ObservableObject {
     }
 
     @Published private(set) var steps: [Step] = []
+    private let safari = LiveSafari()
     @Published private(set) var isRunning = false
 
     func run() async {
@@ -55,9 +56,16 @@ final class LiveCheck: ObservableObject {
             try await Task.sleep(for: .milliseconds(500))
             try SafariController.openTab(url: base + "-b", windowID: source)
             try SafariController.focus(windowID: source)
+            // Safari's menu items work on its key window, and only while Safari is the active app.
+            self.safari.activate()
+            await self.safari.waitUntilActive()
+            defer { NSApp.activate() }
             let known = Set(try SafariController.windows().map(\.id))
-            guard try SafariController.moveCurrentTabToNewWindow() else {
+            guard let item = SafariController.moveTabItem() else {
                 return (false, String(localized: "No “Move Tab to New Window” in the Window menu"))
+            }
+            guard item.enabled, try SafariController.moveCurrentTabToNewWindow() else {
+                return (false, String(localized: "“Move Tab to New Window” is disabled in the Window menu"))
             }
             let moved = try await SafariController.waitForNewWindow(excluding: known)
             defer { try? SafariController.close(windowID: moved) }

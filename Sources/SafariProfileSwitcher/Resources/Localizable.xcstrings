@@ -1943,6 +1943,16 @@
         }
       }
     },
+    "“Move Tab to New Window” is disabled in the Window menu": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пункт «Переместить вкладку в новое окно» в меню «Окно» неактивен"
+          }
+        }
+      }
+    },
     "“Safari decides” passes the link to Safari, which applies Safari Settings → Websites → Open Links in Profile (or uses the most recent profile). Keep plain per-site choices there, and rules here for what Safari can't do: the source app, paths, a profile menu, cleaning links.": {
       "localizations": {
         "ru": {

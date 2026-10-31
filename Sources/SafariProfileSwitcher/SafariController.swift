@@ -432,13 +432,20 @@ enum SafariController {
     /// Presses Window → Move Tab to New Window. Returns `false` if the item isn't there (or is disabled).
     static func moveCurrentTabToNewWindow() throws -> Bool {
         guard AXIsProcessTrusted() else { throw SafariError.accessibilityDenied }
-        guard let windowMenu = barMenu(fromEnd: 2) else { throw SafariError.notRunning }
-        let titles = moveTabTitles
-        guard let item = menuItems(in: windowMenu).first(where: { titles.contains($0.title) && $0.enabled }) else {
-            return false
-        }
+        guard let item = moveTabItem(), item.enabled else { return false }
         try press(item)
         return true
+    }
+
+    /// The "Move Tab to New Window" item, looked up by its title in all of Safari's menus: the Window menu
+    /// isn't always where its position says (Safari 26 has more menus at the end of the bar than before).
+    /// `nil` if Safari has none; disabled while Safari isn't the active app.
+    static func moveTabItem() -> MenuItem? {
+        let titles = moveTabTitles
+        for menu in barMenus() {
+            if let item = menuItems(in: menu.menu).first(where: { titles.contains($0.title) }) { return item }
+        }
+        return nil
     }
 
     private static let moveTabTitles = menuTitles(english: "Move Tab to New Window", key: "869.title")
@@ -498,11 +505,11 @@ enum SafariController {
         return axChildren(items[index], kAXChildrenAttribute).first
     }
 
-    /// `fromEnd: 1` is Help, `2` is Window (the Develop menu is optional, so count from the end).
-    private static func barMenu(fromEnd offset: Int) -> AXUIElement? {
-        let items = barItems()
-        guard items.count >= offset + 3 else { return nil }
-        return axChildren(items[items.count - offset], kAXChildrenAttribute).first
+    /// All menus of the menu bar with their titles (the Apple menu included).
+    private static func barMenus() -> [(title: String, menu: AXUIElement)] {
+        barItems().compactMap { item in
+            axChildren(item, kAXChildrenAttribute).first.map { (axString(item, kAXTitleAttribute) ?? "", $0) }
+        }
     }
 
     /// Depth-first list of all menu items, including submenus.
@@ -555,7 +562,10 @@ enum SafariController {
                 lines.append("  \(shown(axString(window, kAXTitleAttribute) ?? "?")) frame=\(frame)")
             }
         }
-        for (name, menu) in [("File", barMenu(at: 2)), ("Window", barMenu(fromEnd: 2))] {
+        let menus = barMenus()
+        lines.append("Menu bar: \(menus.map(\.title))")
+        let windowMenu = menus.first { menu in menuItems(in: menu.menu).contains { moveTabTitles.contains($0.title) } }
+        for (name, menu) in [("File", barMenu(at: 2)), ("Window", windowMenu?.menu)] {
             guard let menu else { continue }
             lines.append("\(name) menu:")
             for item in menuItems(in: menu) {
